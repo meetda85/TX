@@ -1,0 +1,19 @@
+# Base de datos local: cada torre tiene la suya, no se versiona.
+datos/*.db
+datos/*.db-journal
+datos/*.db-wal
+datos/*.db-shm
+
+# Respaldos y archivos de trabajo
+*.bak
+respaldos/
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

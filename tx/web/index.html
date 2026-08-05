@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tiempo Extra · TWR MEX</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231d4ed8'/><text x='16' y='23' font-family='system-ui,sans-serif' font-size='17' font-weight='800' fill='white' text-anchor='middle'>TX</text></svg>">
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+<header class="barra">
+  <div class="marca">
+    <span class="logo">TX</span>
+    <div>
+      <h1>Asignación de Tiempo Extra</h1>
+      <p class="sub">Torre de Control México</p>
+    </div>
+  </div>
+
+  <nav class="pestanas" id="pestanas">
+    <button class="pest activa" data-vista="cuadricula">Cuadrícula</button>
+    <button class="pest" data-vista="asignar">Asignar</button>
+    <button class="pest" data-vista="vacantes">Vacantes</button>
+    <button class="pest" data-vista="totales">Totales</button>
+    <button class="pest" data-vista="mensajes">Mensajes</button>
+    <button class="pest" data-vista="personal">Personal</button>
+  </nav>
+
+  <div class="acciones-barra">
+    <button class="icono" id="btn-tema" title="Cambiar tema">◐</button>
+    <button class="icono" id="btn-ajustes" title="Ajustes">⚙</button>
+  </div>
+</header>
+
+<main>
+
+<!-- ================= CUADRÍCULA ================= -->
+<section class="vista activa" id="vista-cuadricula">
+  <div class="controles">
+    <div class="grupo-mes">
+      <button class="btn-nav" id="mes-ant">‹</button>
+      <span class="mes-actual" id="etiqueta-mes">—</span>
+      <button class="btn-nav" id="mes-sig">›</button>
+      <button class="btn-plano" id="mes-hoy">Hoy</button>
+    </div>
+
+    <div class="grupo-filtros">
+      <label>Categoría
+        <select id="filtro-categoria">
+          <option value="">Todas</option>
+          <option value="SUPERVISOR">Supervisores</option>
+          <option value="ATCO">ATCOs</option>
+          <option value="AUX">Auxiliares</option>
+        </select>
+      </label>
+      <label>Buscar
+        <input type="search" id="filtro-texto" placeholder="siglas o nombre" autocomplete="off">
+      </label>
+      <label>Tamaño
+        <select id="zoom">
+          <option value="compacto">Compacto</option>
+          <option value="normal" selected>Normal</option>
+          <option value="grande">Grande</option>
+          <option value="enorme">Enorme</option>
+        </select>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="solo-tx"> Sólo quien trae TX
+      </label>
+    </div>
+  </div>
+
+  <div class="leyenda" id="leyenda"></div>
+
+  <div class="envoltura-rejilla">
+    <div id="rejilla" class="rejilla"></div>
+  </div>
+
+  <p class="pie-ayuda">
+    Clic en una celda para anotar tiempo extra o corregir el turno base.
+    Las <b>jornadas dobles</b> llevan marco ámbar; al tercer día seguido la celda
+    se pinta en rojo y el sistema bloquea la asignación.
+  </p>
+</section>
+
+<!-- ================= ASIGNAR ================= -->
+<section class="vista" id="vista-asignar">
+  <div class="panel-doble">
+    <div class="tarjeta">
+      <h2>1 · Elige el hueco a cubrir</h2>
+      <div class="campos">
+        <label>Fecha <input type="date" id="asig-fecha"></label>
+        <label>Turno
+          <select id="asig-turno">
+            <option value="C">C · 07:00-14:00</option>
+            <option value="K">K · 14:00-21:00</option>
+            <option value="O">O · 21:00-07:00</option>
+          </select>
+        </label>
+        <label>Ubicación
+          <select id="asig-ubicacion">
+            <option value="TWR1">TWR 1</option>
+            <option value="T2">T2</option>
+          </select>
+        </label>
+        <label>Categoría
+          <select id="asig-categoria">
+            <option value="">Todas</option>
+            <option value="SUPERVISOR">Supervisores</option>
+            <option value="ATCO">ATCOs</option>
+            <option value="AUX">Auxiliares</option>
+          </select>
+        </label>
+      </div>
+      <button class="btn primario" id="btn-buscar-candidatos">Ver quién puede</button>
+      <p class="nota" id="asig-resumen"></p>
+    </div>
+
+    <div class="tarjeta crece">
+      <h2>2 · Candidatos</h2>
+      <p class="nota">
+        Ordenados por disponibilidad y, dentro de cada grupo, por quien menos
+        tiempo extra lleva en el mes — para que el reparto salga parejo.
+      </p>
+      <div id="lista-candidatos" class="lista-candidatos">
+        <p class="vacio">Elige fecha y turno para ver la lista.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= VACANTES ================= -->
+<section class="vista" id="vista-vacantes">
+  <div class="tarjeta">
+    <h2>Publicar tiempo extra disponible</h2>
+    <p class="nota">
+      Pega tal cual el mensaje que mandas al grupo. El sistema lo entiende en
+      cualquiera de los formatos que usan hoy.
+    </p>
+    <textarea id="texto-publicacion" rows="7" placeholder="Buen día TX disponible :&#10;Spvr&#10;13 K, 14 C y K, 15 C y K&#10;Instruccion&#10;10 C, 11 K, 12 C y K"></textarea>
+    <div class="fila-controles">
+      <label>Fecha del mensaje <input type="date" id="fecha-publicacion"></label>
+      <button class="btn" id="btn-leer-publicacion">Leer mensaje</button>
+      <button class="btn primario" id="btn-guardar-vacantes" disabled>Guardar vacantes</button>
+    </div>
+    <div id="previa-publicacion"></div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Vacantes abiertas</h2>
+    <div id="tabla-vacantes"></div>
+  </div>
+</section>
+
+<!-- ================= TOTALES ================= -->
+<section class="vista" id="vista-totales">
+  <div class="tarjeta">
+    <h2>Totales de tiempo extra</h2>
+    <p class="nota">
+      Captura aquí los acumulados que hoy llevas en el Excel. La columna
+      «Sistema» son las horas que este programa tiene registradas por su cuenta,
+      para que puedas cotejar.
+    </p>
+    <div class="fila-controles">
+      <label>Periodo <input type="month" id="periodo-totales"></label>
+      <button class="btn primario" id="btn-guardar-totales">Guardar totales</button>
+      <button class="btn" id="btn-importar-totales">Importar de Excel…</button>
+      <input type="file" id="archivo-totales" accept=".xlsx,.csv" hidden>
+    </div>
+    <div id="tabla-totales"></div>
+  </div>
+</section>
+
+<!-- ================= MENSAJES ================= -->
+<section class="vista" id="vista-mensajes">
+  <div class="panel-doble">
+    <div class="tarjeta">
+      <h2>Leer solicitudes del grupo</h2>
+      <p class="nota">
+        Pega los mensajes de quienes piden («☝🏼 11, 12, 13 y 15 en K»).
+        Si escribes las siglas, se ligan a esa persona.
+      </p>
+      <label class="linea">Siglas de quien pide
+        <input type="text" id="solicitud-siglas" maxlength="3" placeholder="CE" autocomplete="off">
+      </label>
+      <textarea id="texto-solicitudes" rows="6" placeholder="Solicito&#10;11 C&#10;13 K&#10;15 K"></textarea>
+      <div class="fila-controles">
+        <label>Fecha del mensaje <input type="date" id="fecha-solicitudes"></label>
+        <button class="btn" id="btn-leer-solicitudes">Leer</button>
+        <button class="btn primario" id="btn-guardar-solicitudes" disabled>Registrar</button>
+      </div>
+      <div id="previa-solicitudes"></div>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Redactar la asignación</h2>
+      <p class="nota">
+        Genera el mensaje listo para pegar en WhatsApp con lo que ya asignaste.
+      </p>
+      <div class="fila-controles">
+        <label>Del <input type="date" id="gen-desde"></label>
+        <label>Al <input type="date" id="gen-hasta"></label>
+        <button class="btn primario" id="btn-generar">Generar</button>
+      </div>
+      <textarea id="salida-mensaje" rows="10" readonly placeholder="Aquí aparece el mensaje…"></textarea>
+      <button class="btn" id="btn-copiar">Copiar al portapapeles</button>
+    </div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Cargar histórico desde un export de WhatsApp</h2>
+    <p class="nota">
+      Sube el archivo <code>.txt</code> que exporta WhatsApp del grupo. El sistema
+      recorre todo el chat y reconstruye qué tiempo extra se asignó y a quién,
+      para que la cuadrícula arranque con el historial ya cargado.
+    </p>
+    <div class="fila-controles">
+      <button class="btn" id="btn-elegir-export">Elegir archivo .txt…</button>
+      <input type="file" id="archivo-export" accept=".txt" hidden>
+      <span class="nota" id="nombre-export"></span>
+    </div>
+    <div id="previa-export"></div>
+  </div>
+</section>
+
+<!-- ================= PERSONAL ================= -->
+<section class="vista" id="vista-personal">
+  <div class="tarjeta">
+    <h2>Personal</h2>
+    <div class="fila-controles">
+      <button class="btn primario" id="btn-nueva-persona">Agregar persona</button>
+      <button class="btn" id="btn-importar-horario">Importar horario de Excel…</button>
+      <input type="file" id="archivo-horario" accept=".xlsx,.csv" hidden>
+      <button class="btn" id="btn-sembrar">Cargar plantilla S-TWR agosto</button>
+    </div>
+    <div id="tabla-personal"></div>
+  </div>
+</section>
+
+</main>
+
+<!-- ================= MODALES ================= -->
+<div class="fondo-modal" id="fondo-modal" hidden>
+  <div class="modal" id="modal" role="dialog" aria-modal="true">
+    <button class="cerrar" id="cerrar-modal" aria-label="Cerrar">×</button>
+    <div id="contenido-modal"></div>
+  </div>
+</div>
+
+<div class="avisos" id="avisos"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
