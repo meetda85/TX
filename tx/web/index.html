@@ -113,6 +113,14 @@
           </select>
         </label>
       </div>
+      <label class="linea-vertical">Quiénes lo pidieron
+        <textarea id="asig-siglas" rows="2"
+          placeholder="CE VS GH — o pega el mensaje del grupo"></textarea>
+      </label>
+      <p class="nota nota-apretada">
+        Déjalo vacío para ver a todo el personal. Si escribes o pegas siglas,
+        la lista se reduce a esa gente.
+      </p>
       <button class="btn primario" id="btn-buscar-candidatos">Ver quién puede</button>
       <p class="nota" id="asig-resumen"></p>
     </div>
@@ -120,8 +128,9 @@
     <div class="tarjeta crece">
       <h2>2 · Candidatos</h2>
       <p class="nota">
-        Ordenados por disponibilidad y, dentro de cada grupo, por quien menos
-        tiempo extra lleva en el mes — para que el reparto salga parejo.
+        Captura el acumulado de cada quien en la casilla <b>TX acum.</b> —
+        tal como venga del Excel en este momento. La lista se reordena sola:
+        primero quien sí puede y, dentro de ese grupo, quien menos lleva.
       </p>
       <div id="lista-candidatos" class="lista-candidatos">
         <p class="vacio">Elige fecha y turno para ver la lista.</p>
@@ -165,10 +174,24 @@
     <div class="fila-controles">
       <label>Periodo <input type="month" id="periodo-totales"></label>
       <button class="btn primario" id="btn-guardar-totales">Guardar totales</button>
-      <button class="btn" id="btn-importar-totales">Importar de Excel…</button>
-      <input type="file" id="archivo-totales" accept=".xlsx,.csv" hidden>
+      <button class="btn" id="btn-importar-conteo">Importar del libro de conteo…</button>
+      <input type="file" id="archivo-conteo" accept=".xlsx,.csv" hidden>
     </div>
     <div id="tabla-totales"></div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Importar del libro de conteo</h2>
+    <p class="nota">
+      Lee una hoja mensual del libro <code>Controladores</code> tal como está:
+      trae los totales acumulados <b>y</b> el detalle día por día. El detalle
+      importa porque un día de 14 horas o más cuenta como jornada doble para la
+      regla de días consecutivos, aunque la hoja no diga qué turnos fueron.
+    </p>
+    <p class="nota">
+      Baja el archivo de Google Sheets con <b>Archivo → Descargar → Microsoft
+      Excel (.xlsx)</b> y súbelo aquí.
+    </p>
   </div>
 </section>
 

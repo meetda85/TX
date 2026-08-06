@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import re
 import sqlite3
 import tempfile
 from datetime import date, datetime, timedelta
@@ -174,12 +175,14 @@ def _panorama_completo(
 
     base = db.horario_rango(cx, margen_desde, margen_hasta)
     extras = db.asignaciones_rango(cx, margen_desde, margen_hasta)
+    historicas = db.horas_historicas_rango(cx, margen_desde, margen_hasta)
 
     salida: dict[int, dict[date, reglas.Dia]] = {}
     for fila in db.personas(cx):
         pid = fila["id"]
         horario_persona = base.get(pid, {})
         tx_persona = extras.get(pid, {})
+        horas_persona = historicas.get(pid, {})
         dias: dict[date, reglas.Dia] = {}
         cursor = margen_desde
         while cursor <= margen_hasta:
@@ -193,7 +196,12 @@ def _panorama_completo(
                 )
                 for a in tx_persona.get(cursor, [])
             ]
-            dias[cursor] = reglas.construir_dia(cursor, horario_persona.get(cursor), bloques)
+            dias[cursor] = reglas.construir_dia(
+                cursor,
+                horario_persona.get(cursor),
+                bloques,
+                horas_persona.get(cursor, 0.0),
+            )
             cursor += timedelta(days=1)
         salida[pid] = dias
     return salida
@@ -331,9 +339,25 @@ def candidatos(cx: sqlite3.Connection, params: dict) -> dict:
     horas_sistema = db.horas_asignadas(cx, periodo)
     totales_manuales = db.totales(cx, periodo)
 
+    # Filtro por quienes solicitaron: se aceptan siglas sueltas separadas por
+    # comas, espacios o saltos de línea.
+    solicitantes: set[str] | None = None
+    crudo = params.get("siglas", [""])[0].strip()
+    desconocidas: list[str] = []
+    if crudo:
+        solicitantes = set()
+        for pieza in re.split(r"[,\s;]+", crudo.upper()):
+            if not pieza:
+                continue
+            solicitantes.add(pieza)
+        conocidas = {p["iniciales"].upper() for p in db.personas(cx)}
+        desconocidas = sorted(solicitantes - conocidas)
+
     filas = []
     for persona in db.personas(cx):
         if categoria and persona["categoria"] != categoria:
+            continue
+        if solicitantes is not None and persona["iniciales"].upper() not in solicitantes:
             continue
         dias = db.panorama(cx, persona["id"], fecha, margen=5)
         evaluacion = reglas.evaluar(
@@ -368,8 +392,10 @@ def candidatos(cx: sqlite3.Connection, params: dict) -> dict:
         "fecha": fecha.isoformat(),
         "turno": turno,
         "ubicacion": ubicacion,
+        "periodo": periodo,
         "turno_desc": T.descripcion(turno),
         "candidatos": filas,
+        "siglas_desconocidas": desconocidas,
     }
 
 
@@ -726,6 +752,76 @@ def importar_horario(cx: sqlite3.Connection, cuerpo: dict) -> dict:
         ruta.unlink(missing_ok=True)
 
 
+def fijar_total(cx: sqlite3.Connection, cuerpo: dict) -> dict:
+    """Captura el total de UNA persona, sin tocar a las demás.
+
+    Es lo que se usa al asignar: se teclea el acumulado de quien solicitó,
+    tal como viene del Excel de conteo en ese momento.
+    """
+    persona_id = cuerpo.get("persona_id")
+    if not persona_id:
+        raise ErrorPeticion("Falta persona_id")
+    periodo = (cuerpo.get("periodo") or "").strip()
+    if not periodo:
+        raise ErrorPeticion("Falta el periodo (AAAA-MM)")
+
+    horas = cuerpo.get("horas")
+    if horas in (None, ""):
+        cx.execute(
+            "DELETE FROM totales WHERE persona_id=? AND periodo=?",
+            (int(persona_id), periodo),
+        )
+        cx.commit()
+        return {"ok": True, "borrado": True}
+
+    try:
+        valor = float(horas)
+    except (TypeError, ValueError) as exc:
+        raise ErrorPeticion(f"«{horas}» no es un número de horas válido") from exc
+    if valor < 0:
+        raise ErrorPeticion("Las horas no pueden ser negativas")
+
+    db.guardar_total(cx, int(persona_id), periodo, valor, 0, "MANUAL")
+    return {"ok": True, "horas": valor}
+
+
+def importar_conteo(cx: sqlite3.Connection, cuerpo: dict) -> dict:
+    """Importa una hoja del libro de conteo: totales y detalle día por día."""
+    ruta = _archivo_temporal(cuerpo)
+    try:
+        anio = int(cuerpo["anio"]) if cuerpo.get("anio") else None
+        mes = int(cuerpo["mes"]) if cuerpo.get("mes") else None
+        previa = importar.previsualizar_conteo(
+            ruta, cuerpo.get("hoja") or None, anio=anio, mes=mes
+        )
+        if not previa.get("ok") or not cuerpo.get("aplicar"):
+            # La previa puede pesar mucho; se recorta el detalle para la pantalla.
+            if previa.get("ok"):
+                previa["muestra_dias"] = previa["dias"][:40]
+                previa["dias"] = previa["dias"] if cuerpo.get("completo") else []
+            return previa
+
+        periodo = cuerpo.get("periodo")
+        if not periodo:
+            desde = previa.get("desde")
+            periodo = desde[:7] if desde else date.today().strftime("%Y-%m")
+
+        resultado = importar.aplicar_conteo(
+            cx,
+            previa,
+            periodo=periodo,
+            importar_totales_=bool(cuerpo.get("con_totales", True)),
+            importar_dias=bool(cuerpo.get("con_dias", True)),
+            crear_personas=bool(cuerpo.get("crear_personas", False)),
+            categoria_nueva=cuerpo.get("categoria") or "ATCO",
+        )
+        resultado["periodo"] = periodo
+        resultado["aviso"] = previa.get("aviso")
+        return resultado
+    finally:
+        ruta.unlink(missing_ok=True)
+
+
 def importar_totales(cx: sqlite3.Connection, cuerpo: dict) -> dict:
     ruta = _archivo_temporal(cuerpo)
     try:
@@ -768,6 +864,8 @@ POST = {
     "/api/vacantes/borrar": borrar_vacante,
     "/api/solicitudes": registrar_solicitudes,
     "/api/totales/guardar": guardar_totales,
+    "/api/totales/uno": fijar_total,
+    "/api/importar/conteo": importar_conteo,
     "/api/wa/publicacion": wa_publicacion,
     "/api/wa/solicitudes": wa_solicitudes,
     "/api/wa/generar": wa_generar,

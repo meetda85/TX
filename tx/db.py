@@ -83,11 +83,24 @@ CREATE TABLE IF NOT EXISTS totales (
     PRIMARY KEY (persona_id, periodo)
 );
 
+-- Horas de tiempo extra conocidas por día pero SIN saber qué turno fue.
+-- Es lo que se puede recuperar del Excel de conteo, que guarda horas por día
+-- y no el turno. Sirve para la regla: 14 horas o más en un día es jornada
+-- doble aunque no sepamos si fue C+K o K+O.
+CREATE TABLE IF NOT EXISTS horas_historicas (
+    persona_id INTEGER NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+    fecha      TEXT    NOT NULL,
+    horas      REAL    NOT NULL,
+    fuente     TEXT    NOT NULL DEFAULT 'EXCEL',
+    PRIMARY KEY (persona_id, fecha)
+);
+
 CREATE TABLE IF NOT EXISTS ajustes (
     clave TEXT PRIMARY KEY,
     valor TEXT NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_horas_hist_fecha   ON horas_historicas(fecha);
 CREATE INDEX IF NOT EXISTS idx_horario_fecha      ON horario(fecha);
 CREATE INDEX IF NOT EXISTS idx_asignaciones_fecha ON asignaciones(fecha);
 CREATE INDEX IF NOT EXISTS idx_vacantes_fecha     ON vacantes(fecha);
@@ -242,6 +255,41 @@ def asignaciones_rango(
     return salida
 
 
+def guardar_horas_historicas(
+    cx: sqlite3.Connection,
+    persona_id: int,
+    fecha: date,
+    horas: float,
+    fuente: str = "EXCEL",
+) -> None:
+    if horas <= 0:
+        cx.execute(
+            "DELETE FROM horas_historicas WHERE persona_id=? AND fecha=?",
+            (persona_id, fecha.isoformat()),
+        )
+    else:
+        cx.execute(
+            "INSERT INTO horas_historicas (persona_id, fecha, horas, fuente) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(persona_id, fecha) DO UPDATE SET "
+            "horas = excluded.horas, fuente = excluded.fuente",
+            (persona_id, fecha.isoformat(), horas, fuente),
+        )
+    cx.commit()
+
+
+def horas_historicas_rango(
+    cx: sqlite3.Connection, desde: date, hasta: date
+) -> dict[int, dict[date, float]]:
+    filas = cx.execute(
+        "SELECT persona_id, fecha, horas FROM horas_historicas WHERE fecha BETWEEN ? AND ?",
+        (desde.isoformat(), hasta.isoformat()),
+    ).fetchall()
+    salida: dict[int, dict[date, float]] = {}
+    for f in filas:
+        salida.setdefault(f["persona_id"], {})[date.fromisoformat(f["fecha"])] = f["horas"]
+    return salida
+
+
 def crear_asignacion(
     cx: sqlite3.Connection,
     *,
@@ -307,6 +355,13 @@ def panorama(
             (persona_id, desde.isoformat(), hasta.isoformat()),
         ).fetchall()
     }
+    historicas = {
+        date.fromisoformat(f["fecha"]): f["horas"]
+        for f in cx.execute(
+            "SELECT fecha, horas FROM horas_historicas WHERE persona_id=? AND fecha BETWEEN ? AND ?",
+            (persona_id, desde.isoformat(), hasta.isoformat()),
+        ).fetchall()
+    }
     extras: dict[date, list[reglas.Bloque]] = {}
     for f in cx.execute(
         "SELECT * FROM asignaciones WHERE persona_id=? AND fecha BETWEEN ? AND ?",
@@ -325,7 +380,12 @@ def panorama(
     dias: dict[date, reglas.Dia] = {}
     cursor = desde
     while cursor <= hasta:
-        dias[cursor] = reglas.construir_dia(cursor, base.get(cursor), extras.get(cursor, []))
+        dias[cursor] = reglas.construir_dia(
+            cursor,
+            base.get(cursor),
+            extras.get(cursor, []),
+            historicas.get(cursor, 0.0),
+        )
         cursor += timedelta(days=1)
     return dias
 

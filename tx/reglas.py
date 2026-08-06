@@ -48,6 +48,11 @@ class Bloque:
         return self.completo and self.turno in T.TRONCALES
 
 
+#: A partir de estas horas en un día, la jornada se considera doble aunque no
+#: se sepa qué turnos la formaron. C+K son exactamente 14.
+UMBRAL_HORAS_DOBLE = 14.0
+
+
 @dataclass
 class Dia:
     """Todo lo que una persona tiene asignado en una fecha."""
@@ -55,6 +60,8 @@ class Dia:
     fecha: date
     codigo_base: str | None = None
     bloques: list[Bloque] = field(default_factory=list)
+    #: Horas de TX conocidas por el conteo histórico, sin turno identificado.
+    horas_historicas: float = 0.0
 
     @property
     def turnos_troncales(self) -> list[str]:
@@ -111,14 +118,24 @@ class Evaluacion:
 # ---------------------------------------------------------------------------
 
 
-def construir_dia(fecha: date, codigo_base: str | None, asignaciones: list[Bloque]) -> Dia:
+def construir_dia(
+    fecha: date,
+    codigo_base: str | None,
+    asignaciones: list[Bloque],
+    horas_historicas: float = 0.0,
+) -> Dia:
     """Arma el Dia juntando el horario base con el tiempo extra del día."""
     bloques: list[Bloque] = []
     if T.es_laborable(codigo_base):
         assert codigo_base is not None
         bloques.append(Bloque(turno=codigo_base, es_tx=False))
     bloques.extend(asignaciones)
-    return Dia(fecha=fecha, codigo_base=codigo_base, bloques=bloques)
+    return Dia(
+        fecha=fecha,
+        codigo_base=codigo_base,
+        bloques=bloques,
+        horas_historicas=horas_historicas,
+    )
 
 
 def es_jornada_doble(dia: Dia, dia_previo: Dia | None = None) -> bool:
@@ -130,8 +147,13 @@ def es_jornada_doble(dia: Dia, dia_previo: Dia | None = None) -> bool:
     2. Dos o más turnos troncales completos arrancan ese día (C+K, K+O, …).
     3. El turno nocturno del día anterior encadena con el primer turno de hoy
        (O de ayer 21:00-07:00 + C de hoy 07:00-14:00 = 17 horas corridas).
+    4. El conteo histórico registra 14 horas o más ese día, aunque no diga
+       qué turnos fueron.
     """
     if dia.codigo_base == "f":
+        return True
+
+    if dia.horas_historicas >= UMBRAL_HORAS_DOBLE:
         return True
 
     troncales = dia.turnos_troncales
@@ -303,5 +325,6 @@ def _clonar(dias: dict[date, Dia]) -> dict[date, Dia]:
                 Bloque(b.turno, b.es_tx, b.completo, b.horas, b.ubicacion)
                 for b in dia.bloques
             ],
+            horas_historicas=dia.horas_historicas,
         )
     return copia

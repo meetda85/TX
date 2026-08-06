@@ -477,6 +477,15 @@ function bloqueEvaluacion(ev) {
    ASIGNAR
    ========================================================================== */
 
+/** Extrae siglas de un texto suelto o de un mensaje pegado del grupo. */
+function siglasDe(texto) {
+  const limpio = texto.replace(/\b\d+\s*[CKOcko]\b/g, ' ')     // "13 K" no son siglas
+                      .replace(/\b[CKOcko]\b/g, ' ');
+  const halladas = limpio.toUpperCase().match(/\b[A-ZÁÉÍÓÚÑ]{2,3}\b/g) || [];
+  const ruido = new Set(['TX','LOS','LAS','QUE','POR','DEL','CON','SUS','ACK','PLS','EN','Y','O']);
+  return [...new Set(halladas.filter(s => !ruido.has(s)))].join(' ');
+}
+
 async function buscarCandidatos() {
   const fecha = $('#asig-fecha').value;
   if (!fecha) { avisar('Elige una fecha', 'warn'); return; }
@@ -488,10 +497,16 @@ async function buscarCandidatos() {
   const cat = $('#asig-categoria').value;
   if (cat) params.categoria = cat;
 
+  const crudo = $('#asig-siglas').value.trim();
+  if (crudo) params.siglas = siglasDe(crudo);
+
   try {
     const datos = await obtener('/api/candidatos', params);
-    $('#asig-resumen').textContent =
-      `${fechaLarga(datos.fecha)} · turno ${datos.turno} (${datos.turno_desc})`;
+    let resumen = `${fechaLarga(datos.fecha)} · turno ${datos.turno} (${datos.turno_desc})`;
+    if (datos.siglas_desconocidas.length) {
+      resumen += ` · sin registrar: ${datos.siglas_desconocidas.join(', ')}`;
+    }
+    $('#asig-resumen').textContent = resumen;
     pintarCandidatos(datos);
   } catch (err) { fallar(err); }
 }
@@ -509,15 +524,39 @@ function pintarCandidatos(datos) {
         <div class="n">${escapar(nombreCorto(c.nombre))}</div>
         <div class="r">${escapar(c.base ? `Base: ${c.base} — ` : '')}${escapar(c.resumen)}</div>
       </div>
-      <div class="acum">
-        <b>${(c.acumulado_horas || 0).toFixed(1)}</b>
-        h ${c.acumulado_es_manual ? 'capturadas' : 'del sistema'}
-      </div>
+      <label class="acum-editable" title="Acumulado de tiempo extra del mes">
+        <span>TX acum.</span>
+        <input type="number" step="0.5" min="0" data-total="${c.id}"
+               value="${c.acumulado_es_manual ? c.acumulado_horas : ''}"
+               placeholder="${(c.acumulado_horas || 0).toFixed(1)}"
+               class="${c.acumulado_es_manual ? 'capturado' : ''}">
+      </label>
       <button class="btn ${c.nivel === 'PROHIBIDO' ? 'peligro' : 'primario'} chico"
               data-asignar="${c.id}" data-nivel="${c.nivel}">
         ${c.nivel === 'PROHIBIDO' ? 'Forzar' : 'Asignar'}
       </button>
     </div>`).join('');
+
+  // Captura del acumulado en línea: guarda al salir del campo o con Enter,
+  // y reordena la lista para que quien menos lleva quede arriba.
+  $$('[data-total]', cont).forEach(campo => {
+    const guardar = async () => {
+      if (campo.dataset.guardando) return;
+      campo.dataset.guardando = '1';
+      try {
+        await enviar('/api/totales/uno', {
+          persona_id: Number(campo.dataset.total),
+          periodo: datos.periodo,
+          horas: campo.value,
+        });
+        await buscarCandidatos();
+        await cargarCuadricula();
+      } catch (err) { fallar(err); }
+      finally { delete campo.dataset.guardando; }
+    };
+    campo.addEventListener('change', guardar);
+    campo.addEventListener('keydown', (e) => { if (e.key === 'Enter') campo.blur(); });
+  });
 
   $$('[data-asignar]', cont).forEach(b => b.addEventListener('click', async () => {
     const prohibido = b.dataset.nivel === 'PROHIBIDO';
@@ -852,44 +891,128 @@ async function importarHorario(archivo) {
   } catch (err) { fallar(err); }
 }
 
-async function importarTotales(archivo) {
+async function importarConteo(archivo) {
   try {
     const b64 = await leerBase64(archivo);
-    const previa = await enviar('/api/importar/totales', { nombre: archivo.name, contenido_b64: b64 });
-    if (!previa.ok) { avisar(previa.error, 'error', 8000); return; }
+    let previa = await enviar('/api/importar/conteo', { nombre: archivo.name, contenido_b64: b64 });
 
-    abrirModal(`
-      <h3>Importar totales de tiempo extra</h3>
-      <p class="sub-modal">Se leyeron <b>${previa.total_registros}</b> renglón(es).
-        Revisa que la lectura sea correcta antes de aplicar.</p>
-      <label class="linea" style="margin-bottom:12px">Periodo
-        <input type="month" id="tot-periodo" value="${$('#periodo-totales').value || `${estado.anio}-${String(estado.mes).padStart(2,'0')}`}">
-      </label>
-      <div class="envoltura-tabla" style="max-height:280px"><table class="datos">
-        <thead><tr><th>Clave leída</th><th class="num">Horas</th><th class="num">Turnos</th></tr></thead>
-        <tbody>${previa.registros.slice(0, 80).map(r => `<tr>
-          <td>${escapar(r.clave)}</td><td class="num">${r.horas}</td><td class="num">${r.turnos}</td>
-        </tr>`).join('')}</tbody></table></div>
-      <div class="acciones-modal">
-        <button class="btn" id="tot-cancelar">Cancelar</button>
-        <button class="btn primario" id="tot-aplicar">Importar</button>
-      </div>`);
+    const hojas = previa.hojas || [];
+    // Se abre en la hoja que más días traiga; suele ser la del mes en curso.
+    if (!previa.ok && hojas.length) {
+      for (const h of hojas) {
+        const intento = await enviar('/api/importar/conteo',
+          { nombre: archivo.name, contenido_b64: b64, hoja: h });
+        if (intento.ok) { previa = intento; break; }
+      }
+    }
+    if (!previa.ok) { avisar(previa.error, 'error', 9000); return; }
 
-    $('#tot-cancelar').addEventListener('click', cerrarModal);
-    $('#tot-aplicar').addEventListener('click', async () => {
-      try {
-        const r = await enviar('/api/importar/totales', {
-          nombre: archivo.name, contenido_b64: b64, aplicar: true,
-          periodo: $('#tot-periodo').value,
-        });
-        let msg = `${r.aplicados} total(es) importado(s)`;
-        if (r.sin_coincidencia.length) msg += ` · sin coincidencia: ${r.sin_coincidencia.slice(0, 8).join(', ')}`;
-        avisar(msg, 'ok', 8000);
-        cerrarModal();
-        await cargarTotales();
-        await cargarCuadricula();
-      } catch (err) { fallar(err); }
-    });
+    const pintar = (p) => {
+      const dobles = (p.dobles || []).slice(0, 30);
+      abrirModal(`
+        <h3>Importar del libro de conteo</h3>
+        <p class="sub-modal">
+          Hoja <b>${escapar(p.hoja_leida || hojas[0] || '')}</b> ·
+          ${p.total_personas} persona(s) · ${p.total_dias} día(s) con movimiento
+          ${p.desde ? `· del ${p.desde} al ${p.hasta}` : ''}
+        </p>
+        ${p.aviso ? `<div class="bloque-eval nivel-ADVERTENCIA">⚠ ${escapar(p.aviso)}</div>` : ''}
+
+        <div class="campos">
+          <label>Hoja
+            <select id="cont-hoja">
+              ${hojas.map(h => `<option value="${escapar(h)}"${h === p.hoja_leida ? ' selected' : ''}>${escapar(h)}</option>`).join('')}
+            </select>
+          </label>
+          <label>Periodo destino
+            <input type="month" id="cont-periodo"
+                   value="${p.desde ? p.desde.slice(0, 7) : `${estado.anio}-${String(estado.mes).padStart(2, '0')}`}">
+          </label>
+        </div>
+
+        <div class="fila-controles">
+          <label class="check"><input type="checkbox" id="cont-totales" checked> Totales acumulados</label>
+          <label class="check"><input type="checkbox" id="cont-dias" checked> Detalle día por día</label>
+          <label class="check"><input type="checkbox" id="cont-altas" checked> Dar de alta a quien falte</label>
+          <label>Categoría de las altas
+            <select id="cont-categoria">
+              <option value="ATCO">ATCO</option>
+              <option value="AUX">Auxiliar</option>
+              <option value="SUPERVISOR">Supervisor</option>
+            </select>
+          </label>
+        </div>
+
+        ${dobles.length ? `
+          <p class="nota"><b>${(p.dobles || []).length}</b> jornada(s) doble(s)
+             detectada(s) (14 horas o más en un día). Estas alimentan la regla
+             de días consecutivos:</p>
+          <div class="envoltura-tabla" style="max-height:170px"><table class="datos">
+            <thead><tr><th>Fecha</th><th>Siglas</th><th class="num">Horas</th></tr></thead>
+            <tbody>${dobles.map(d => `<tr><td>${d.fecha}</td>
+              <td><span class="etiqueta">${escapar(d.siglas)}</span></td>
+              <td class="num">${d.horas}</td></tr>`).join('')}</tbody>
+          </table></div>` : ''}
+
+        <div class="envoltura-tabla" style="max-height:200px;margin-top:12px"><table class="datos">
+          <thead><tr><th>Siglas</th><th class="num">Total acumulado</th></tr></thead>
+          <tbody>${Object.entries(p.totales).map(([s, h]) => `<tr>
+            <td><span class="etiqueta">${escapar(s)}</span></td>
+            <td class="num">${h}</td></tr>`).join('')}</tbody>
+        </table></div>
+
+        <div class="acciones-modal">
+          <button class="btn" id="cont-cancelar">Cancelar</button>
+          <button class="btn primario" id="cont-aplicar">Importar</button>
+        </div>`);
+
+      $('#cont-cancelar').addEventListener('click', cerrarModal);
+
+      $('#cont-hoja').addEventListener('change', async (e) => {
+        const [anio, mes] = $('#cont-periodo').value.split('-').map(Number);
+        try {
+          const otra = await enviar('/api/importar/conteo', {
+            nombre: archivo.name, contenido_b64: b64, hoja: e.target.value, anio, mes,
+          });
+          if (otra.ok) pintar(otra);
+          else avisar(otra.error, 'warn', 7000);
+        } catch (err) { fallar(err); }
+      });
+
+      $('#cont-aplicar').addEventListener('click', async () => {
+        const [anio, mes] = $('#cont-periodo').value.split('-').map(Number);
+        try {
+          const r = await enviar('/api/importar/conteo', {
+            nombre: archivo.name, contenido_b64: b64, aplicar: true,
+            hoja: $('#cont-hoja').value,
+            periodo: $('#cont-periodo').value,
+            anio, mes,
+            con_totales: $('#cont-totales').checked,
+            con_dias: $('#cont-dias').checked,
+            crear_personas: $('#cont-altas').checked,
+            categoria: $('#cont-categoria').value,
+          });
+          let msg = `${r.totales_aplicados} total(es) y ${r.dias_aplicados} registro(s) diarios importados`;
+          if (r.personas_creadas.length) {
+            msg += ` · ${r.personas_creadas.length} alta(s) nueva(s): ${r.personas_creadas.join(', ')}`;
+          }
+          if (r.sin_persona.length) {
+            msg += ` · siglas sin persona dada de alta: ${r.sin_persona.join(', ')}`;
+          }
+          avisar(msg, 'ok', 12000);
+          if (r.personas_creadas.length) {
+            avisar('Las altas nuevas quedaron sólo con siglas. '
+                 + 'Complétales el nombre y la categoría en la pestaña Personal.', 'warn', 12000);
+          }
+          cerrarModal();
+          await cargarTotales();
+          await cargarPersonal();
+          await cargarCuadricula();
+        } catch (err) { fallar(err); }
+      });
+    };
+
+    pintar(previa);
   } catch (err) { fallar(err); }
 }
 
@@ -1011,9 +1134,9 @@ async function iniciar() {
   // Totales
   $('#btn-guardar-totales').addEventListener('click', guardarTotales);
   $('#periodo-totales').addEventListener('change', cargarTotales);
-  $('#btn-importar-totales').addEventListener('click', () => $('#archivo-totales').click());
-  $('#archivo-totales').addEventListener('change', (e) => {
-    if (e.target.files[0]) importarTotales(e.target.files[0]);
+  $('#btn-importar-conteo').addEventListener('click', () => $('#archivo-conteo').click());
+  $('#archivo-conteo').addEventListener('change', (e) => {
+    if (e.target.files[0]) importarConteo(e.target.files[0]);
     e.target.value = '';
   });
 

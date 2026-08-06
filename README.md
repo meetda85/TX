@@ -33,13 +33,14 @@ en máquinas con permisos restringidos y sin internet.
 > **No puede haber tres días consecutivos de jornada doble.**
 
 Una **jornada doble** es un día en que la persona junta dos turnos troncales.
-Se llega ahí por tres caminos:
+Se llega ahí por cuatro caminos:
 
 | Camino | Ejemplo |
 |---|---|
 | El horario base ya trae el turno `f` de 14 horas | `f` = 07:00–21:00 |
 | Su turno base más tiempo extra | Trae `C` y se le da TX en `K` → 14 h |
 | Dos bloques de TX el mismo día en su descanso | `C` + `K` |
+| El conteo registra 14 horas o más ese día | `17` en el Excel = 7 + 10 |
 
 Además, el turno `O` (21:00–07:00) **encadena** con el `C` del día siguiente:
 quien sale a las 07:00 y vuelve a entrar a las 07:00 lleva 17 horas corridas.
@@ -99,6 +100,15 @@ primero quien sí puede, y dentro de cada grupo **quien menos tiempo extra
 lleva en el mes**, para que el reparto salga parejo. A cada quien le pone su
 semáforo con el motivo en texto claro.
 
+En **«Quiénes lo pidieron»** puedes pegar el mensaje del grupo tal cual: el
+sistema saca las siglas y reduce la lista a esa gente. Cada renglón trae una
+casilla **TX acum.** donde tecleas el acumulado tal como venga del Excel en
+ese momento; al salir del campo la lista se reordena sola.
+
+Ése es el uso de todos los días: no hace falta tener sincronizado el conteo
+completo, sólo el de quienes solicitaron —diez o quince personas— y el número
+siempre está fresco.
+
 ### Vacantes
 
 Pegas el mensaje de «TX disponible» tal como lo mandas al grupo y el sistema lo
@@ -114,8 +124,19 @@ Spvr                            Jueves 6 en C y K           10 C y K
 
 La captura manual de los acumulados que hoy llevas en el Excel. Junto a cada
 persona ves la columna **Sistema**, que son las horas que este programa
-registró por su cuenta, para cotejar una contra otra. También importa un
-`.xlsx` o `.csv`.
+registró por su cuenta, para cotejar una contra otra.
+
+Desde aquí también se importa el **libro de conteo** (`Controladores`). Lee una
+hoja mensual completa y trae dos cosas:
+
+- Los **totales acumulados** de la fila de encabezado.
+- El **detalle día por día**, que es lo valioso: un día de 14 horas o más
+  cuenta como jornada doble para la regla de días consecutivos, aunque la hoja
+  no diga qué turnos fueron. `7` es un turno, `10` es un turno O, `17` es una
+  doble.
+
+Las siglas que no estén dadas de alta se registran automáticamente si marcas
+la casilla; después les completas el nombre en la pestaña Personal.
 
 ### Mensajes
 
@@ -138,15 +159,32 @@ columna de siglas, y te enseña una previa antes de escribir nada.
 
 ## Sobre el Excel de conteo
 
-El sistema lee `.xlsx` y `.csv` sin librerías externas.
+El sistema lee `.xlsx` y `.csv` sin librerías externas, y conoce el formato del
+libro `Controladores`:
 
-Para el archivo de Google Sheets que se modifica a diario hay dos caminos:
+```
+        col 0    col 2   col 3   col 4   col 5   …      ← dos columnas por persona
+fila 1  Días  |  DT   |       |  RH   |       |         ← siglas
+fila 2        |  146  |  0    |  475  |  0    |         ← totales acumulados
+fila 3  1-jul |   7   |       |   7   |       |         ← horas de ese día
+fila 4  2-jul |       |       |   7   |  10   |         ← 7+10 = 17 h: doble
+```
 
-1. **Descargar y arrastrar** — `Archivo → Descargar → Microsoft Excel (.xlsx)`
-   y súbelo en *Totales → Importar de Excel*. Funciona hoy, sin configurar nada.
-2. **Conexión automática** — pendiente. Requiere publicar la hoja o dar de alta
-   una credencial de Google; queda como siguiente paso una vez que veamos la
-   estructura real del archivo.
+Convive con las dos variantes del libro: las hojas `Julio Twr` y `Agosto Aux`
+guardan la fecha completa, mientras que `Enero`…`Diciembre` guardan sólo el
+número de día y hace falta indicar el mes. El sistema lo deduce del nombre de
+la hoja y avisa si las fechas no cuadran con él.
+
+Para el archivo de Google Sheets que se modifica a diario, la recomendación es:
+
+1. **El día a día** — no sincronizar nada. Al asignar, capturas el acumulado de
+   quienes solicitaron directo en la lista de candidatos. Son diez o quince
+   números y siempre están al corriente.
+2. **De vez en cuando** — `Archivo → Descargar → Microsoft Excel (.xlsx)` y lo
+   importas completo desde *Totales*, para traer el detalle diario que alimenta
+   la regla.
+3. **Conexión automática** — pendiente. Requiere publicar la hoja o dar de alta
+   una credencial de Google.
 
 ---
 
@@ -157,15 +195,16 @@ tx/
   turnos.py     Catálogo de turnos, horarios y encadenamientos
   reglas.py     Motor de reglas: jornada doble y días consecutivos
   db.py         SQLite: personal, horario, vacantes, asignaciones, totales
+                y horas del conteo histórico
   api.py        Endpoints JSON
   servidor.py   Servidor HTTP local
   whatsapp.py   Lectura y redacción de los mensajes del grupo
   xlsx.py       Lector de .xlsx sin dependencias
-  importar.py   Importadores de horario y totales
+  importar.py   Importadores de horario mensual y del libro de conteo
   semilla.py    Horario de agosto 2026 de S-TWR para arrancar
   web/          Interfaz (HTML, CSS y JavaScript sin frameworks)
 datos/          Base de datos local (no se versiona)
-pruebas/        83 pruebas automatizadas
+pruebas/        109 pruebas automatizadas
 ```
 
 ## Pruebas
@@ -175,7 +214,8 @@ python3 -m unittest discover -s pruebas
 ```
 
 Cubren el motor de reglas (incluido el caso textual de la jefatura), el parser
-de WhatsApp contra mensajes reales de los tres grupos, y la API completa.
+de WhatsApp contra mensajes reales de los tres grupos, la lectura del libro de
+conteo en sus dos formatos, y la API completa.
 
 ## Respaldos
 

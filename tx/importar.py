@@ -289,6 +289,279 @@ def previsualizar_totales(ruta: Path | str, hoja: str | None = None) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Hoja de conteo mensual (el formato del libro «Controladores»)
+#
+# Fila de siglas   :  Días | DT |    | RH |    | OA | …  (2 columnas por persona:
+#                                                         tiempo extra y relevo)
+# Fila siguiente   :  totales acumulados de cada columna
+# Filas siguientes :  fecha (serial de Excel) + horas de cada quien ese día
+#                     7 = un turno · 10 = turno O · 17 = jornada doble
+# ---------------------------------------------------------------------------
+
+_ENCABEZADO_DIAS = re.compile(r"^d[ií]as?$", re.IGNORECASE)
+_NO_ES_PERSONA = {"TOTAL", "DIAS", "DÍAS", "SUMA", "TWR", "AUX", "T2", "REF"}
+
+MESES_HOJA = {
+    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+    "julio": 7, "agosto": 8, "septiembre": 9, "setiembre": 9, "octubre": 10,
+    "noviembre": 11, "diciembre": 12,
+}
+
+
+def mes_de_hoja(nombre: str | None) -> int | None:
+    """Deduce el mes del nombre de la hoja («Julio Twr» → 7)."""
+    if not nombre:
+        return None
+    plano = nombre.strip().lower()
+    for etiqueta, numero in MESES_HOJA.items():
+        if plano.startswith(etiqueta):
+            return numero
+    return None
+
+
+def _fila_de_siglas(filas: list[list[str]]) -> int | None:
+    for i, fila in enumerate(filas[:15]):
+        if any(_ENCABEZADO_DIAS.match(str(c).strip()) for c in fila[:3]):
+            return i
+    return None
+
+
+def _columnas_de_personas(fila: list[str]) -> list[tuple[str, int, int]]:
+    """Devuelve (siglas, columna inicial, columna final) de cada persona.
+
+    Cada persona ocupa desde su columna hasta justo antes de la siguiente,
+    porque el libro le da dos columnas (tiempo extra y relevo).
+    """
+    marcas: list[tuple[str, int]] = []
+    for j, celda in enumerate(fila):
+        texto = str(celda).strip().upper()
+        if 2 <= len(texto) <= 3 and texto.isalpha() and texto not in _NO_ES_PERSONA:
+            marcas.append((texto, j))
+
+    columnas: list[tuple[str, int, int]] = []
+    for indice, (siglas, inicio) in enumerate(marcas):
+        fin = marcas[indice + 1][1] - 1 if indice + 1 < len(marcas) else inicio + 1
+        columnas.append((siglas, inicio, fin))
+    return columnas
+
+
+def _suma(fila: list[str], inicio: int, fin: int) -> float:
+    total = 0.0
+    for j in range(inicio, min(fin, len(fila) - 1) + 1):
+        valor = _a_numero(fila[j])
+        if valor:
+            total += valor
+    return round(total, 2)
+
+
+def previsualizar_conteo(
+    ruta: Path | str,
+    hoja: str | None = None,
+    *,
+    anio: int | None = None,
+    mes: int | None = None,
+) -> dict:
+    """Lee una hoja mensual del libro de conteo: totales y detalle por día.
+
+    Convive con los dos formatos del libro:
+
+    - Hojas «Julio Twr» / «Agosto Aux»: la primera columna trae la fecha
+      completa como número de serie de Excel.
+    - Hojas «Enero» … «Diciembre»: la primera columna trae sólo el número de
+      día (1 a 31), así que hace falta saber a qué mes pertenece. Se deduce del
+      nombre de la hoja y se puede corregir a mano.
+    """
+    filas = xlsx.leer_tabla(ruta, hoja)
+    if not filas:
+        return {"ok": False, "error": "La hoja no tiene filas legibles.", "hojas": _hojas_de(ruta)}
+
+    fila_siglas = _fila_de_siglas(filas)
+    if fila_siglas is None:
+        return {
+            "ok": False,
+            "error": "No se encontró la fila de siglas (la que empieza con «Días»). "
+                     "Esta hoja no tiene el formato de conteo mensual.",
+            "hojas": _hojas_de(ruta),
+        }
+
+    columnas = _columnas_de_personas(filas[fila_siglas])
+    if not columnas:
+        return {"ok": False, "error": "No se reconocieron siglas en la fila de encabezado.",
+                "hojas": _hojas_de(ruta)}
+
+    mes = mes or mes_de_hoja(hoja)
+    anio = anio or date.today().year
+
+    fila_totales, indice_totales = _localizar_totales(filas, fila_siglas, columnas)
+    totales = {siglas: _suma(fila_totales, ini, fin) for siglas, ini, fin in columnas}
+
+    dias: list[dict] = []
+    fechas_vistas: set[date] = set()
+    dias_sin_mes = 0
+
+    for fila in filas[indice_totales + 1 :]:
+        if not fila or not str(fila[0]).strip():
+            continue
+        valor = _a_numero(fila[0])
+        if valor is None:
+            continue
+
+        if valor >= 40000:                       # número de serie de Excel
+            fecha = xlsx.serial_a_fecha(valor)
+        elif 1 <= valor <= 31:                   # sólo el número de día
+            if not mes:
+                dias_sin_mes += 1
+                continue
+            try:
+                fecha = date(anio, mes, int(valor))
+            except ValueError:
+                continue
+        else:
+            continue
+
+        if fecha in fechas_vistas:
+            continue
+        fechas_vistas.add(fecha)
+
+        del_dia = {}
+        for siglas, ini, fin in columnas:
+            horas = _suma(fila, ini, fin)
+            if horas > 0:
+                del_dia[siglas] = horas
+        if del_dia:
+            dias.append({"fecha": fecha.isoformat(), "horas": del_dia})
+
+    rango = sorted(f for f in fechas_vistas if any(
+        d["fecha"] == f.isoformat() for d in dias))
+
+    aviso = None
+    if dias_sin_mes:
+        aviso = ("La hoja guarda sólo el número de día. Indica a qué mes "
+                 "corresponde para poder importar el detalle diario.")
+    elif mes and rango and rango[0].month != mes:
+        aviso = (f"Ojo: la hoja se llama «{hoja}» pero las fechas que trae son de "
+                 f"{rango[0].strftime('%m/%Y')}. Verifica antes de importar.")
+
+    return {
+        "ok": True,
+        "hojas": _hojas_de(ruta),
+        "hoja_leida": hoja,
+        "mes_deducido": mes,
+        "anio": anio,
+        "aviso": aviso,
+        "siglas": [s for s, _, _ in columnas],
+        "totales": totales,
+        "dias": dias,
+        "total_personas": len(columnas),
+        "total_dias": len(dias),
+        "desde": rango[0].isoformat() if rango else None,
+        "hasta": rango[-1].isoformat() if rango else None,
+        "dobles": [
+            {"fecha": d["fecha"], "siglas": s, "horas": h}
+            for d in dias for s, h in d["horas"].items() if h >= 14
+        ],
+    }
+
+
+def _localizar_totales(
+    filas: list[list[str]], fila_siglas: int, columnas: list[tuple[str, int, int]]
+) -> tuple[list[str], int]:
+    """Halla la fila de totales, que no siempre va pegada a la de siglas.
+
+    Entre una y otra puede haber filas en blanco o con errores `#REF!`.
+    Se toma la primera que traiga números en varias columnas de persona y que
+    no empiece con un número de día.
+    """
+    mejor: tuple[list[str], int] = ([], fila_siglas)
+    for indice in range(fila_siglas + 1, min(fila_siglas + 4, len(filas))):
+        fila = filas[indice]
+        if not fila:
+            continue
+        if str(fila[0]).strip() and _a_numero(fila[0]) is not None:
+            break  # ya empezaron los días
+        con_numero = sum(
+            1 for _, ini, fin in columnas if _suma(fila, ini, fin) > 0
+        )
+        if con_numero >= max(3, len(columnas) // 4):
+            return fila, indice
+        mejor = (mejor[0], indice)
+    return mejor[0], mejor[1]
+
+
+def aplicar_conteo(
+    cx: sqlite3.Connection,
+    previa: dict,
+    *,
+    periodo: str,
+    importar_totales_: bool = True,
+    importar_dias: bool = True,
+    crear_personas: bool = False,
+    categoria_nueva: str = "ATCO",
+) -> dict:
+    """Escribe en la base los totales y el detalle diario del conteo.
+
+    Con `crear_personas`, las siglas que aparezcan en el conteo y no estén
+    dadas de alta se registran sobre la marcha. Es lo práctico la primera vez:
+    el conteo trae a los 35-40 de la torre y capturarlos uno por uno sería
+    absurdo. El nombre queda pendiente y se completa después.
+    """
+    if not previa.get("ok"):
+        return {"ok": False, "error": previa.get("error", "Previsualización inválida")}
+
+    sin_persona: set[str] = set()
+    creadas: set[str] = set()
+    totales_aplicados = 0
+    dias_aplicados = 0
+
+    def resolver(siglas: str):
+        persona = db.persona_por_iniciales(cx, siglas)
+        if persona is not None:
+            return persona
+        if crear_personas:
+            db.guardar_persona(
+                cx,
+                iniciales=siglas,
+                nombre=siglas,
+                categoria=categoria_nueva,
+                notas="Alta automática desde el conteo — falta el nombre",
+            )
+            creadas.add(siglas)
+            return db.persona_por_iniciales(cx, siglas)
+        sin_persona.add(siglas)
+        return None
+
+    if importar_totales_:
+        for siglas, horas in previa["totales"].items():
+            persona = resolver(siglas)
+            if persona is None or not horas:
+                continue
+            db.guardar_total(cx, persona["id"], periodo, float(horas), 0, "EXCEL")
+            totales_aplicados += 1
+
+    if importar_dias:
+        cache: dict[str, int | None] = {}
+        for registro in previa["dias"]:
+            fecha = date.fromisoformat(registro["fecha"])
+            for siglas, horas in registro["horas"].items():
+                if siglas not in cache:
+                    persona = resolver(siglas)
+                    cache[siglas] = persona["id"] if persona else None
+                persona_id = cache[siglas]
+                if persona_id is None:
+                    continue
+                db.guardar_horas_historicas(cx, persona_id, fecha, float(horas), "EXCEL")
+                dias_aplicados += 1
+
+    return {
+        "ok": True,
+        "totales_aplicados": totales_aplicados,
+        "dias_aplicados": dias_aplicados,
+        "sin_persona": sorted(sin_persona),
+        "personas_creadas": sorted(creadas),
+    }
+
+
 def _hojas_de(ruta: Path | str) -> list[str]:
     ruta = Path(ruta)
     if ruta.suffix.lower() != ".xlsx":
