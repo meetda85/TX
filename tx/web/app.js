@@ -1693,6 +1693,118 @@ async function importarConteo(archivo) {
 }
 
 /* ==========================================================================
+   LIMPIEZA PARA UNA ASIGNACIÓN NUEVA
+   ========================================================================== */
+
+async function modalLimpiar() {
+  let previa;
+  try { previa = await obtener('/api/limpiar/previa'); }
+  catch (err) { fallar(err); return; }
+
+  const cimiento = new Set(['personal', 'horario', 'historico']);
+  const filas = previa.grupos.map(g => `
+    <label class="grupo-limpiar ${g.por_defecto ? 'se-borra' : ''}
+                  ${cimiento.has(g.clave) ? 'cimiento' : ''}
+                  ${g.registros ? '' : 'vacio-ya'}">
+      <input type="checkbox" data-grupo="${g.clave}" ${g.por_defecto ? 'checked' : ''}>
+      <span class="nombre">${escapar(g.etiqueta)}</span>
+      <span class="cuantos">${g.registros} registro(s)</span>
+    </label>`).join('');
+
+  abrirModal(`
+    <h3>Empezar una asignación nueva</h3>
+    <p class="sub-modal">
+      Vacía lo de la semana pasada para arrancar de cero. Lo marcado se borra;
+      lo demás se queda.
+    </p>
+
+    <div class="grupos-limpiar">${filas}</div>
+
+    <p class="nota">
+      El <b>catálogo de personal</b>, el <b>horario</b> y el <b>histórico del
+      Excel</b> no se tocan: son el cimiento, no el ciclo. Las horas sí se
+      limpian porque las vuelves a tomar del conteo cada semana, y una cifra
+      vieja ordenaría mal la sugerencia sin que te dieras cuenta.
+    </p>
+
+    <label class="check" style="margin-bottom:6px">
+      <input type="checkbox" id="lim-respaldo" checked>
+      Sacar un respaldo antes de borrar
+    </label>
+    <label class="check">
+      <input type="checkbox" id="lim-ronda" checked>
+      Volver a la ronda 1
+    </label>
+
+    <div class="confirmar-limpiar">
+      <label for="lim-palabra">Escribe ${escapar(previa.palabra)} para confirmar</label>
+      <input type="text" id="lim-palabra" maxlength="10" autocomplete="off"
+             placeholder="${escapar(previa.palabra)}">
+    </div>
+
+    <div class="acciones-modal">
+      <button class="btn" id="lim-cancelar">Cancelar</button>
+      <button class="btn peligro" id="lim-hacer" disabled>Limpiar</button>
+    </div>`);
+
+  const palabra = $('#lim-palabra');
+  const botonHacer = $('#lim-hacer');
+
+  const revisar = () => {
+    const marcados = $$('[data-grupo]').filter(c => c.checked);
+    botonHacer.disabled = !marcados.length
+      || palabra.value.trim().toUpperCase() !== previa.palabra;
+    botonHacer.textContent = marcados.length
+      ? `Limpiar ${marcados.length} grupo(s)` : 'Nada marcado';
+  };
+
+  $$('[data-grupo]').forEach(casilla => casilla.addEventListener('change', () => {
+    casilla.closest('label').classList.toggle('se-borra', casilla.checked);
+    revisar();
+  }));
+  palabra.addEventListener('input', revisar);
+  palabra.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !botonHacer.disabled) botonHacer.click();
+  });
+  revisar();
+  setTimeout(() => palabra.focus(), 80);
+
+  $('#lim-cancelar').addEventListener('click', cerrarModal);
+
+  botonHacer.addEventListener('click', async () => {
+    const grupos = $$('[data-grupo]').filter(c => c.checked).map(c => c.dataset.grupo);
+    const cuerpo = {
+      grupos,
+      confirmacion: palabra.value,
+      respaldar: $('#lim-respaldo').checked,
+      volver_a_ronda_1: $('#lim-ronda').checked,
+    };
+    // Borrar al personal pide la misma clave que el catálogo.
+    if (grupos.includes('personal')) {
+      const clave = prompt('Borrar el catálogo de personal pide la clave:');
+      if (clave === null) return;
+      cuerpo.clave = clave;
+    }
+
+    botonHacer.disabled = true;
+    try {
+      const r = await enviar('/api/limpiar', cuerpo);
+      cerrarModal();
+      avisar(`Listo: ${r.total} registro(s) borrado(s). Ya puedes empezar de nuevo.`, 'ok', 7000);
+      if (r.respaldo) {
+        avisar(`Respaldo guardado en ${r.respaldo.split(/[/\\]/).pop()}`, 'ok', 9000);
+      }
+      estado.ronda = r.ronda;
+      await cargarConfig();
+      pintarSelectorRonda();
+      await cargarMatriz();
+      await cargarCuadricula();
+      cambiarVista('publicar');
+    } catch (err) { fallar(err); revisar(); }
+  });
+}
+
+/* ==========================================================================
    AJUSTES Y ARRANQUE
    ========================================================================== */
 
@@ -1830,6 +1942,7 @@ async function iniciar() {
   $('#btn-tema').addEventListener('click', () =>
     aplicarTema(document.documentElement.dataset.tema === 'oscuro' ? 'claro' : 'oscuro'));
   $('#btn-ajustes').addEventListener('click', modalAjustes);
+  $('#btn-limpiar-todo').addEventListener('click', modalLimpiar);
 
   // Modal
   $('#cerrar-modal').addEventListener('click', cerrarModal);

@@ -817,3 +817,45 @@ table.datos tr.fila-grupo:hover td { background: var(--papel-2); }
 .nota.chiquita { font-size: 11.5px; opacity: .85; }
 .candado-abierto { color: var(--ok); font-weight: 650; }
 .candado-cerrado { color: var(--tinta-suave); }
+
+/* ---------- Diálogo de limpieza ---------- */
+
+#btn-limpiar-todo { white-space: nowrap; }
+#btn-limpiar-todo:hover { border-color: var(--aviso); color: var(--aviso); }
+
+.grupos-limpiar { display: flex; flex-direction: column; gap: 2px; margin: 12px 0; }
+.grupo-limpiar {
+  /* La regla base de `label` pone flex-direction: column; aquí va en fila. */
+  display: flex; flex-direction: row; align-items: center; gap: 10px;
+  padding: 9px 11px; border: 1px solid var(--borde); border-radius: 9px;
+  cursor: pointer; background: var(--papel-2);
+}
+.grupo-limpiar:hover { border-color: var(--borde-fuerte); }
+.grupo-limpiar input { margin: 0; }
+.grupo-limpiar .nombre { flex: 1; font-size: 13.5px; font-weight: 600; }
+.grupo-limpiar .cuantos {
+  font-size: 12px; font-variant-numeric: tabular-nums; color: var(--tinta-suave);
+}
+.grupo-limpiar.se-borra { border-color: var(--aviso); background: color-mix(in srgb, var(--aviso-fondo) 40%, var(--papel-2)); }
+.grupo-limpiar.se-borra .cuantos { color: var(--aviso); font-weight: 700; }
+.grupo-limpiar.cimiento { opacity: .9; }
+.grupo-limpiar.cimiento .nombre::after {
+  content: "se conserva"; margin-left: 8px; padding: 1px 7px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; letter-spacing: .03em;
+  background: var(--ok-fondo); color: var(--ok); border: 1px solid var(--ok);
+}
+.grupo-limpiar.cimiento.se-borra .nombre::after {
+  content: "se borrará"; background: var(--alto-fondo); color: var(--alto); border-color: var(--alto);
+}
+.grupo-limpiar.vacio-ya { opacity: .5; }
+
+.confirmar-limpiar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 14px; padding: 12px; border-radius: 9px;
+  background: var(--alto-fondo); border: 1px solid var(--alto);
+}
+.confirmar-limpiar label { flex-direction: row; color: var(--alto); font-weight: 650; }
+.confirmar-limpiar input {
+  width: 130px; text-transform: uppercase; letter-spacing: .1em;
+  font-weight: 700; text-align: center;
+}

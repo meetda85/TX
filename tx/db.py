@@ -148,6 +148,102 @@ def inicializar(cx: sqlite3.Connection) -> None:
 # ---------------------------------------------------------------------------
 
 
+def ruta_de(cx: sqlite3.Connection) -> Path | None:
+    """El archivo que respalda esta conexión, si no es en memoria."""
+    for _, nombre, archivo in cx.execute("PRAGMA database_list").fetchall():
+        if nombre == "main" and archivo:
+            return Path(archivo)
+    return None
+
+
+def respaldar(cx: sqlite3.Connection, etiqueta: str = "antes-de-limpiar") -> Path | None:
+    """Copia la base a `datos/respaldos/` antes de una operación destructiva.
+
+    Se usa la API de respaldo de SQLite en vez de copiar el archivo, para que
+    la copia salga consistente aunque haya algo escribiendo.
+    """
+    origen = ruta_de(cx)
+    if origen is None:
+        return None
+
+    carpeta = origen.parent / "respaldos"
+    carpeta.mkdir(parents=True, exist_ok=True)
+    marca = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+
+    # Dos limpiezas dentro del mismo segundo compartirían nombre y la segunda
+    # pisaría a la primera, que es justo lo que un respaldo no debe hacer.
+    destino = carpeta / f"{origen.stem}-{etiqueta}-{marca}.db"
+    intento = 2
+    while destino.exists():
+        destino = carpeta / f"{origen.stem}-{etiqueta}-{marca}-{intento}.db"
+        intento += 1
+
+    copia = sqlite3.connect(destino)
+    try:
+        cx.backup(copia)
+    finally:
+        copia.close()
+    return destino
+
+
+#: Qué borra cada casilla de la limpieza. El orden importa: primero lo que
+#: depende de otras tablas.
+LIMPIABLE: dict[str, tuple[str, ...]] = {
+    "vacantes": ("solicitudes", "vacantes"),
+    "peticiones": ("peticiones",),
+    "asignaciones": ("asignaciones",),
+    "horas": ("totales",),
+    "horario": ("horario",),
+    "historico": ("horas_historicas",),
+    "personal": ("personas",),
+}
+
+ETIQUETAS_LIMPIABLE = {
+    "vacantes": "Lugares publicados",
+    "peticiones": "Solicitudes capturadas",
+    "asignaciones": "Asignaciones hechas",
+    "horas": "Horas capturadas",
+    "horario": "Horario base del mes",
+    "historico": "Histórico importado del Excel",
+    "personal": "Catálogo de personal",
+}
+
+#: Lo que se limpia por omisión al empezar una asignación nueva. El personal,
+#: el horario y el histórico se conservan: son el cimiento, no el ciclo.
+POR_DEFECTO_LIMPIABLE = ("vacantes", "peticiones", "asignaciones", "horas")
+
+
+def conteos_limpiables(cx: sqlite3.Connection) -> dict[str, int]:
+    """Cuántos registros hay en cada grupo, para avisar antes de borrar."""
+    salida: dict[str, int] = {}
+    for grupo, tablas in LIMPIABLE.items():
+        total = 0
+        for tabla in tablas:
+            total += cx.execute(f"SELECT COUNT(*) AS n FROM {tabla}").fetchone()["n"]
+        salida[grupo] = total
+    return salida
+
+
+def limpiar(cx: sqlite3.Connection, grupos: list[str]) -> dict[str, int]:
+    """Vacía los grupos indicados y devuelve cuántos registros se borraron."""
+    borrados: dict[str, int] = {}
+    for grupo in grupos:
+        tablas = LIMPIABLE.get(grupo)
+        if not tablas:
+            continue
+        total = 0
+        for tabla in tablas:
+            total += cx.execute(f"DELETE FROM {tabla}").rowcount
+        borrados[grupo] = total
+    cx.commit()
+    return borrados
+
+
+# ---------------------------------------------------------------------------
+# Ajustes
+# ---------------------------------------------------------------------------
+
+
 def ajuste(cx: sqlite3.Connection, clave: str, por_defecto: str = "") -> str:
     fila = cx.execute("SELECT valor FROM ajustes WHERE clave = ?", (clave,)).fetchone()
     return fila["valor"] if fila else por_defecto

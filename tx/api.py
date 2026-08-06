@@ -100,6 +100,87 @@ def sembrar(cx: sqlite3.Connection, cuerpo: dict) -> dict:
     return semilla.sembrar(cx, forzar=bool(cuerpo.get("forzar")))
 
 
+# ---------------------------------------------------------------------------
+# Limpieza para empezar una asignación nueva
+# ---------------------------------------------------------------------------
+
+#: Palabra que hay que teclear para confirmar. Un clic de más no basta.
+PALABRA_LIMPIAR = "LIMPIAR"
+
+
+def previa_limpieza(cx: sqlite3.Connection, _params: dict) -> dict:
+    """Qué se borraría y cuánto, sin tocar nada."""
+    conteos = db.conteos_limpiables(cx)
+    return {
+        "grupos": [
+            {
+                "clave": clave,
+                "etiqueta": db.ETIQUETAS_LIMPIABLE[clave],
+                "registros": conteos.get(clave, 0),
+                "por_defecto": clave in db.POR_DEFECTO_LIMPIABLE,
+            }
+            for clave in db.LIMPIABLE
+        ],
+        "por_defecto": list(db.POR_DEFECTO_LIMPIABLE),
+        "palabra": PALABRA_LIMPIAR,
+        "hay_archivo": db.ruta_de(cx) is not None,
+    }
+
+
+def limpiar(cx: sqlite3.Connection, cuerpo: dict) -> dict:
+    """Vacía lo del ciclo anterior para empezar una asignación nueva.
+
+    Antes de borrar saca un respaldo, porque esto no se puede deshacer y se
+    hace cada semana: tarde o temprano alguien lo va a pulsar sin querer.
+    """
+    if (cuerpo.get("confirmacion") or "").strip().upper() != PALABRA_LIMPIAR:
+        raise ErrorPeticion(
+            f"Para limpiar hay que escribir «{PALABRA_LIMPIAR}» en la confirmación."
+        )
+
+    grupos = cuerpo.get("grupos")
+    if grupos is None:
+        grupos = list(db.POR_DEFECTO_LIMPIABLE)
+    if not isinstance(grupos, list) or not grupos:
+        raise ErrorPeticion("No se indicó qué limpiar")
+
+    desconocidos = [g for g in grupos if g not in db.LIMPIABLE]
+    if desconocidos:
+        raise ErrorPeticion(f"No sé qué es: {', '.join(desconocidos)}")
+
+    # Borrar al personal arrastra sus asignaciones y solicitudes por las claves
+    # foráneas, así que exige la misma clave que el catálogo.
+    if "personal" in grupos:
+        _exigir_clave(cx, cuerpo)
+
+    antes = db.conteos_limpiables(cx)
+    respaldo = None
+    if cuerpo.get("respaldar", True):
+        try:
+            respaldo = db.respaldar(cx)
+        except Exception as exc:  # noqa: BLE001
+            raise ErrorPeticion(
+                f"No se pudo sacar el respaldo, así que no se borró nada: {exc}"
+            ) from exc
+
+    borrados = db.limpiar(cx, grupos)
+
+    if cuerpo.get("volver_a_ronda_1", True):
+        db.guardar_ajuste(cx, "ronda", "1")
+
+    return {
+        "ok": True,
+        "borrados": borrados,
+        "total": sum(borrados.values()),
+        "detalle": [
+            {"etiqueta": db.ETIQUETAS_LIMPIABLE[g], "registros": borrados.get(g, antes.get(g, 0))}
+            for g in grupos
+        ],
+        "respaldo": str(respaldo) if respaldo else None,
+        "ronda": int(db.ajuste(cx, "ronda", "1")),
+    }
+
+
 def guardar_ajustes(cx: sqlite3.Connection, cuerpo: dict) -> dict:
     if "ronda" in cuerpo:
         ronda = _ronda(cx, {"ronda": cuerpo["ronda"]})
@@ -1447,6 +1528,7 @@ def importar_totales(cx: sqlite3.Connection, cuerpo: dict) -> dict:
 
 GET = {
     "/api/estado": estado,
+    "/api/limpiar/previa": previa_limpieza,
     "/api/personas": listar_personas,
     "/api/cuadricula": cuadricula,
     "/api/candidatos": candidatos,
@@ -1463,6 +1545,7 @@ GET = {
 
 POST = {
     "/api/sembrar": sembrar,
+    "/api/limpiar": limpiar,
     "/api/ajustes": guardar_ajustes,
     "/api/personas/guardar": guardar_persona,
     "/api/personas/borrar": borrar_persona,

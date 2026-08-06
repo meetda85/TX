@@ -108,6 +108,39 @@ De ahí se salta directo a publicar la siguiente ronda.
 
 ---
 
+## Empezar una asignación nueva
+
+El botón **⟳ Nueva asignación** de la barra superior vacía lo del ciclo
+anterior. Es lo primero que se hace cada semana.
+
+Lo que se borra por omisión:
+
+| Se borra | Se conserva |
+|---|---|
+| Lugares publicados | Catálogo de personal |
+| Solicitudes capturadas | Horario base del mes |
+| Asignaciones hechas | Histórico importado del Excel |
+| Horas capturadas | |
+
+El personal, el horario y el histórico son el **cimiento**, no el ciclo:
+recapturarlos cada semana no tendría sentido. Las horas sí se limpian, porque
+las vuelves a tomar del conteo cada vez y **una cifra vieja ordenaría mal la
+sugerencia sin que te dieras cuenta**.
+
+Las casillas se pueden cambiar una por una. Borrar el catálogo de personal pide
+además la clave, porque arrastra consigo asignaciones y solicitudes.
+
+Salvaguardas, porque esto no se deshace y se hace todas las semanas:
+
+- Hay que **escribir `LIMPIAR`** para que el botón se active. Un clic de más no
+  basta.
+- Antes de borrar se guarda un **respaldo** en `datos/respaldos/`, con fecha y
+  hora en el nombre. Para restaurarlo, cierra el programa y copia ese archivo
+  encima de `datos/tx.db`.
+- Al terminar vuelve a la **ronda 1**.
+
+---
+
 ## El catálogo de personal
 
 Está en la pestaña **Personal** y sirve para dar de alta, cambiar de categoría
@@ -326,7 +359,7 @@ tx/
   semilla.py    Horario de agosto 2026 de S-TWR para arrancar
   web/          Interfaz (HTML, CSS y JavaScript sin frameworks)
 datos/          Base de datos local (no se versiona)
-pruebas/        212 pruebas automatizadas
+pruebas/        231 pruebas automatizadas
 ```
 
 ## Pruebas
