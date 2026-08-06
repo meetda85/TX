@@ -1,0 +1,1984 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Tiempo Extra · TWR MEX</title>
+
+<style>
+/* ==========================================================================
+   Tiempo Extra · TWR MEX
+   Cuatro pasos en línea: publicar, anotar quién pidió, anotar sus horas y
+   ver a quién conviene asignarle. Los turnos conservan color propio (C ámbar,
+   K azul, O índigo) para leerse de un vistazo.
+   ========================================================================== */
+:root {
+  --ground:#eef1f6; --surface:#fff; --surface-2:#f7f9fc;
+  --ink:#131c2a; --ink-soft:#5a6a82; --line:#dce3ee; --line-firm:#bfcadb;
+  --accent:#1d4ed8; --accent-ink:#fff;
+  --ok:#157f42; --ok-bg:#dcf5e6; --warn:#a85f06; --warn-bg:#fdf0d2;
+  --crit:#b3201c; --crit-bg:#fde3e1;
+  --c-bg:#fbe6c4; --c-ink:#8a4c07; --c-line:#e3ac57;
+  --k-bg:#cee2fb; --k-ink:#12447f; --k-line:#78abe8;
+  --o-bg:#dcd6f8; --o-ink:#3d3088; --o-line:#a396e4;
+  --shadow:0 1px 2px rgb(15 27 46/.07), 0 6px 20px rgb(15 27 46/.07);
+  --ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground:#0b111c; --surface:#141d2c; --surface-2:#1a2434;
+    --ink:#e4ecf7; --ink-soft:#8fa0b8; --line:#253147; --line-firm:#384865;
+    --accent:#5d8df8; --accent-ink:#08101d;
+    --ok:#4fd07f; --ok-bg:#0f3020; --warn:#f0b643; --warn-bg:#3a2a08;
+    --crit:#f77f7c; --crit-bg:#3d1312;
+    --c-bg:#472f07; --c-ink:#f9d59c; --c-line:#86601a;
+    --k-bg:#102c58; --k-ink:#b3d4ff; --k-line:#2a5aa4;
+    --o-bg:#292260; --o-ink:#cac1fd; --o-line:#4d42a3;
+    --shadow:0 1px 2px rgb(0 0 0/.45), 0 6px 22px rgb(0 0 0/.35);
+  }
+}
+:root[data-theme="dark"] {
+  --ground:#0b111c; --surface:#141d2c; --surface-2:#1a2434;
+  --ink:#e4ecf7; --ink-soft:#8fa0b8; --line:#253147; --line-firm:#384865;
+  --accent:#5d8df8; --accent-ink:#08101d;
+  --ok:#4fd07f; --ok-bg:#0f3020; --warn:#f0b643; --warn-bg:#3a2a08;
+  --crit:#f77f7c; --crit-bg:#3d1312;
+  --c-bg:#472f07; --c-ink:#f9d59c; --c-line:#86601a;
+  --k-bg:#102c58; --k-ink:#b3d4ff; --k-line:#2a5aa4;
+  --o-bg:#292260; --o-ink:#cac1fd; --o-line:#4d42a3;
+  --shadow:0 1px 2px rgb(0 0 0/.45), 0 6px 22px rgb(0 0 0/.35);
+}
+:root[data-theme="light"] {
+  --ground:#eef1f6; --surface:#fff; --surface-2:#f7f9fc;
+  --ink:#131c2a; --ink-soft:#5a6a82; --line:#dce3ee; --line-firm:#bfcadb;
+  --accent:#1d4ed8; --accent-ink:#fff;
+  --ok:#157f42; --ok-bg:#dcf5e6; --warn:#a85f06; --warn-bg:#fdf0d2;
+  --crit:#b3201c; --crit-bg:#fde3e1;
+  --c-bg:#fbe6c4; --c-ink:#8a4c07; --c-line:#e3ac57;
+  --k-bg:#cee2fb; --k-ink:#12447f; --k-line:#78abe8;
+  --o-bg:#dcd6f8; --o-ink:#3d3088; --o-line:#a396e4;
+  --shadow:0 1px 2px rgb(15 27 46/.07), 0 6px 20px rgb(15 27 46/.07);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin:0; background:var(--ground); color:var(--ink);
+  font:15px/1.5 var(--ui); -webkit-font-smoothing:antialiased; }
+h1,h2,h3 { margin:0; font-weight:650; letter-spacing:-.012em; text-wrap:balance; }
+.rotulo { font:600 10.5px/1 var(--ui); letter-spacing:.1em;
+  text-transform:uppercase; color:var(--ink-soft); }
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+code { font:.9em var(--mono); }
+
+/* ---------- Aviso de prueba ---------- */
+.tira { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:8px 20px; background:var(--warn-bg); color:var(--warn);
+  border-bottom:1px solid color-mix(in srgb, var(--warn) 32%, transparent);
+  font-size:12.5px; font-weight:550; }
+
+/* ---------- Cabecera ---------- */
+.cab { position:sticky; top:0; z-index:60; display:flex; align-items:center;
+  gap:20px; flex-wrap:wrap; padding:11px 20px; background:var(--surface);
+  border-bottom:1px solid var(--line); box-shadow:var(--shadow); }
+.marca { display:flex; align-items:center; gap:12px; }
+.ins { display:grid; place-items:center; width:40px; height:40px; border-radius:10px;
+  background:var(--accent); color:var(--accent-ink); font:800 15px/1 var(--mono); }
+.marca h1 { font-size:15.5px; }
+.marca p { margin:1px 0 0; font-size:11.5px; color:var(--ink-soft); }
+
+.pasos { display:flex; gap:3px; margin-left:auto; flex-wrap:wrap; }
+.paso-tab { border:0; background:none; color:var(--ink-soft); cursor:pointer;
+  padding:8px 14px; border-radius:8px; font:550 14px var(--ui); }
+.paso-tab:hover { background:var(--surface-2); color:var(--ink); }
+.paso-tab[aria-selected="true"] { background:var(--accent); color:var(--accent-ink); }
+.paso-tab i { display:inline-grid; place-items:center; font-style:normal;
+  width:18px; height:18px; border-radius:50%; margin-right:6px;
+  background:var(--line); color:var(--ink-soft);
+  font:800 11px var(--mono); vertical-align:-3px; }
+.paso-tab[aria-selected="true"] i { background:var(--accent-ink); color:var(--accent); }
+
+.iconos { display:flex; gap:6px; }
+.icono { width:36px; height:36px; border-radius:8px; cursor:pointer;
+  border:1px solid var(--line); background:var(--surface-2); color:var(--ink);
+  font-size:15px; line-height:1; }
+.icono:hover { border-color:var(--line-firm); }
+
+main { padding:16px 20px 50px; }
+.vista[hidden] { display:none; }
+
+/* ---------- Controles ---------- */
+label.campo { display:flex; flex-direction:column; gap:4px; }
+label.check { display:flex; align-items:center; gap:7px; font-size:12.5px;
+  color:var(--ink-soft); font-weight:550; cursor:pointer; }
+input, select, textarea, button { font-family:inherit; font-size:inherit; color:var(--ink); }
+input, select, textarea { background:var(--surface); border:1px solid var(--line);
+  border-radius:8px; padding:7px 10px; }
+textarea { width:100%; resize:vertical; font:13px/1.55 var(--mono); }
+.btn { border:1px solid var(--line-firm); background:var(--surface); color:var(--ink);
+  border-radius:8px; padding:8px 15px; font-weight:600; cursor:pointer; }
+.btn:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+.btn:disabled { opacity:.45; cursor:not-allowed; }
+.btn.fuerte { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+.btn.fuerte:hover:not(:disabled) { filter:brightness(1.1); color:var(--accent-ink); }
+.btn.riesgo { border-color:var(--crit); color:var(--crit); }
+.btn.riesgo:hover:not(:disabled) { background:var(--crit); color:#fff; }
+.btn.mini { padding:4px 11px; font-size:13px; }
+.btn.grande { padding:11px 22px; font-size:15px; }
+.btn.plano { border:0; background:none; color:var(--accent); padding:6px 8px; }
+
+.tarjeta { background:var(--surface); border:1px solid var(--line); border-radius:12px;
+  padding:18px; margin-bottom:15px; box-shadow:var(--shadow); }
+.tarjeta h2 { font-size:15px; margin-bottom:9px; }
+.par { display:grid; grid-template-columns:minmax(280px,370px) 1fr; gap:15px; align-items:start; }
+@media (max-width:900px) { .par { grid-template-columns:1fr; } }
+.nota { font-size:12.5px; color:var(--ink-soft); margin:0 0 12px; max-width:74ch; }
+.linea { display:flex; flex-wrap:wrap; gap:11px; align-items:flex-end; margin:11px 0; }
+.hueco { color:var(--ink-soft); font-size:13px; text-align:center; padding:22px 0; }
+.pie-paso { display:flex; gap:12px; justify-content:flex-end; align-items:center;
+  flex-wrap:wrap; margin-top:18px; padding-top:16px; border-top:1px solid var(--line); }
+
+/* ---------- Matriz ---------- */
+.matriz-marco { overflow:auto; max-height:58vh; border:1px solid var(--line); border-radius:10px; }
+table.matriz { border-collapse:separate; border-spacing:0; width:100%; font-size:13.5px; }
+table.matriz th, table.matriz td { border-bottom:1px solid var(--line);
+  border-right:1px solid var(--line); padding:3px 5px; text-align:center; }
+table.matriz thead th { position:sticky; z-index:20; background:var(--surface-2);
+  font:700 10.5px var(--ui); letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); }
+table.matriz thead tr:first-child th { top:0; }
+table.matriz thead tr:last-child th { top:27px; border-bottom:2px solid var(--line-firm); }
+table.matriz th.gcab { border-bottom:1px solid var(--line-firm); font-size:11px; }
+table.matriz th.gcab.g-SUPERVISOR { color:var(--c-ink); background:color-mix(in srgb,var(--c-bg) 55%,var(--surface-2)); }
+table.matriz th.gcab.g-ATCO { color:var(--k-ink); background:color-mix(in srgb,var(--k-bg) 55%,var(--surface-2)); }
+table.matriz th.gcab.g-AUX { color:var(--o-ink); background:color-mix(in srgb,var(--o-bg) 55%,var(--surface-2)); }
+table.matriz th.dcab, table.matriz td.dcel { position:sticky; left:0; z-index:15;
+  background:var(--surface); text-align:left; white-space:nowrap;
+  border-right:2px solid var(--line-firm); min-width:100px; }
+table.matriz thead th.dcab { z-index:25; background:var(--surface-2); }
+table.matriz td.dcel { font:400 13px var(--mono); }
+table.matriz td.dcel b { font-size:15px; margin-right:5px; }
+table.matriz td.dcel small { color:var(--ink-soft); text-transform:uppercase; font:10.5px var(--ui); }
+table.matriz tr.fds td { background:color-mix(in srgb,var(--accent) 4%,transparent); }
+table.matriz tr.fds td.dcel { background:color-mix(in srgb,var(--accent) 6%,var(--surface)); }
+table.matriz td.corte { border-right:2px solid var(--line-firm); }
+table.matriz td.tot { font:750 13px var(--mono); color:var(--ink-soft); }
+table.matriz tr.suma td { background:var(--surface-2); font-weight:750;
+  border-top:2px solid var(--line-firm); }
+
+.paso-num { display:flex; align-items:center; justify-content:center; gap:1px; }
+.paso-btn { flex:none; width:21px; height:26px; padding:0; cursor:pointer;
+  border:1px solid transparent; border-radius:5px; background:none; color:var(--ink-soft);
+  font:700 15px/1 var(--ui); display:grid; place-items:center;
+  opacity:0; transition:opacity .12s; }
+.paso-num:hover .paso-btn, .paso-num:focus-within .paso-btn,
+.paso-num:has(.cupo.puesto) .paso-btn { opacity:1; }
+.paso-num:hover .paso-btn { border-color:var(--line); }
+.paso-btn:hover { background:var(--accent); border-color:var(--accent);
+  color:var(--accent-ink); opacity:1; }
+.paso-btn:active { transform:scale(.9); }
+@media (prefers-reduced-motion:reduce) { .paso-btn { transition:none; } }
+
+table.matriz input.cupo { width:34px; padding:5px 2px; text-align:center;
+  font:700 14px var(--mono); font-variant-numeric:tabular-nums;
+  border:1px solid transparent; background:none; border-radius:6px; -moz-appearance:textfield; }
+table.matriz input.cupo::-webkit-outer-spin-button,
+table.matriz input.cupo::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+table.matriz input.cupo:hover { border-color:var(--line); }
+table.matriz input.cupo:focus { border-color:var(--accent); background:var(--surface); }
+table.matriz input.cupo.puesto { background:var(--accent); color:var(--accent-ink);
+  border-color:var(--accent); }
+table.matriz input.cupo::placeholder { color:var(--line-firm); font-weight:400; }
+
+/* ---------- Cajas de mensaje ---------- */
+.cajas { display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:14px; }
+.caja { border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--surface-2); }
+.caja > header { display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  padding:9px 12px; border-bottom:1px solid var(--line); }
+.caja > header b { font-size:13px; }
+.caja > header span { font-size:11.5px; margin-left:auto; opacity:.8; }
+.caja.g-SUPERVISOR > header { background:color-mix(in srgb,var(--c-bg) 55%,var(--surface-2)); color:var(--c-ink); }
+.caja.g-ATCO > header { background:color-mix(in srgb,var(--k-bg) 55%,var(--surface-2)); color:var(--k-ink); }
+.caja.g-AUX > header { background:color-mix(in srgb,var(--o-bg) 55%,var(--surface-2)); color:var(--o-ink); }
+.caja pre { margin:0; padding:12px; white-space:pre-wrap; word-break:break-word;
+  font:13px/1.6 var(--mono); color:var(--ink); max-height:240px; overflow:auto; }
+.caja footer { padding:9px 12px; border-top:1px solid var(--line); }
+
+/* ---------- Paso 2 ---------- */
+.siglas-grande { font:800 20px var(--mono); letter-spacing:.06em;
+  text-transform:uppercase; width:112px; text-align:center; }
+.grupo-sol { margin-bottom:16px; }
+.grupo-sol > h3 { font:800 11px var(--ui); letter-spacing:.08em; text-transform:uppercase;
+  color:var(--ink-soft); margin-bottom:8px; }
+.reng-sol { display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap;
+  padding:9px 12px; border:1px solid var(--line); border-radius:9px;
+  margin-bottom:6px; background:var(--surface-2); }
+.sig { flex:none; display:grid; place-items:center; width:40px; height:30px;
+  border-radius:6px; background:var(--accent); color:var(--accent-ink);
+  font:800 13px var(--mono); }
+.fichas { display:flex; flex-wrap:wrap; gap:5px; flex:1; min-width:0; }
+.ficha { display:inline-flex; align-items:center; gap:4px; padding:2px 4px 2px 9px;
+  border-radius:20px; font:700 12px var(--mono); font-variant-numeric:tabular-nums;
+  border:1px solid var(--line); background:var(--surface); }
+.ficha.t-C { background:var(--c-bg); color:var(--c-ink); border-color:var(--c-line); }
+.ficha.t-K { background:var(--k-bg); color:var(--k-ink); border-color:var(--k-line); }
+.ficha.t-O { background:var(--o-bg); color:var(--o-ink); border-color:var(--o-line); }
+.ficha button { border:0; background:none; cursor:pointer; color:inherit; opacity:.5;
+  font-size:14px; line-height:1; padding:0 3px; }
+.ficha button:hover { opacity:1; color:var(--crit); }
+
+/* ---------- Tablas ---------- */
+table.tabla { width:100%; border-collapse:collapse; font-size:13.5px; }
+table.tabla th { text-align:left; padding:8px 10px; font:700 10.5px var(--ui);
+  letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft);
+  border-bottom:2px solid var(--line-firm); }
+table.tabla td { padding:6px 10px; border-bottom:1px solid var(--line); }
+table.tabla tr.grupo td { background:var(--surface-2); font:800 11px var(--ui);
+  letter-spacing:.07em; text-transform:uppercase; color:var(--ink-soft);
+  border-bottom:2px solid var(--line-firm); }
+.marco-tabla { max-height:58vh; overflow:auto; border:1px solid var(--line); border-radius:10px; }
+.chip { display:inline-block; padding:2px 8px; border-radius:20px;
+  font:700 11px var(--mono); border:1px solid var(--line);
+  background:var(--surface-2); color:var(--ink-soft); }
+.chip.t-C { background:var(--c-bg); color:var(--c-ink); border-color:var(--c-line); }
+.chip.t-K { background:var(--k-bg); color:var(--k-ink); border-color:var(--k-line); }
+.chip.t-O { background:var(--o-bg); color:var(--o-ink); border-color:var(--o-line); }
+input.horas-capt { width:110px; text-align:right; font:650 14px var(--mono);
+  font-variant-numeric:tabular-nums; }
+
+/* ---------- Paso 4 ---------- */
+.lugar { border:1px solid var(--line); border-radius:10px; margin-bottom:10px;
+  overflow:hidden; background:var(--surface-2); }
+.lugar > header { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:9px 13px; border-bottom:1px solid var(--line); background:var(--surface); }
+.lugar > header .cuando { font:700 14px var(--mono); }
+.lugar > header .cuando small { font:400 12px var(--ui); color:var(--ink-soft); margin-left:6px; }
+.lugar > header .grupo-eti { font-size:11.5px; color:var(--ink-soft); }
+.lugar > header .estado { margin-left:auto; font-size:12px; font-weight:650; }
+.lugar.completo > header .estado { color:var(--ok); }
+.lugar.pendiente > header .estado { color:var(--warn); }
+.lugar.nadie > header .estado { color:var(--ink-soft); }
+.lugar ol { list-style:none; margin:0; padding:8px 13px 12px; }
+.lugar ol li { display:flex; align-items:center; gap:10px; padding:7px 0;
+  border-bottom:1px dashed var(--line); }
+.lugar ol li:last-child { border-bottom:0; }
+.lugar ol li .puesto { width:22px; height:22px; border-radius:50%; flex:none;
+  display:grid; place-items:center; font:800 11px var(--mono);
+  background:var(--line); color:var(--ink-soft); }
+.lugar ol li.sugerido .puesto { background:var(--ok); color:#fff; }
+.lugar ol li.ya .puesto { background:var(--accent); color:var(--accent-ink); }
+.lugar ol li .quien { flex:1; min-width:0; font-size:13.5px; font-weight:650; }
+.lugar ol li .quien small { display:block; font-weight:400; font-size:11.5px; color:var(--ink-soft); }
+.lugar ol li .quien em { display:block; font-style:normal; font-size:11px;
+  font-weight:600; color:var(--warn); margin-top:2px; }
+.lugar ol li.grave .quien em { color:var(--crit); }
+.lugar ol li.grave .puesto { background:var(--crit-bg); color:var(--crit); }
+.lugar ol li.sugerido.grave .puesto { background:var(--crit); color:#fff; }
+.lugar ol li .horas { font:750 14px var(--mono); font-variant-numeric:tabular-nums;
+  min-width:72px; text-align:right; }
+.lugar ol li .horas small { display:block; font:400 10px var(--ui); color:var(--ink-soft); }
+.lugar ol li .horas.falta { color:var(--warn); font:600 12px var(--ui); }
+.lugar .sin-nadie { padding:12px 13px; font-size:13px; color:var(--ink-soft); }
+
+/* ---------- Tablero del resumen ---------- */
+.tablero { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+  gap:12px; margin-bottom:16px; }
+.marcador { background:var(--surface); border:1px solid var(--line); border-radius:12px;
+  padding:16px 18px; box-shadow:var(--shadow); border-top:4px solid var(--line-firm); }
+.marcador .cifra { font:750 34px/1.05 var(--mono); font-variant-numeric:tabular-nums;
+  letter-spacing:-.02em; }
+.marcador .etiqueta { font:800 11px var(--ui); letter-spacing:.07em; text-transform:uppercase;
+  color:var(--ink-soft); margin-top:4px; }
+.marcador .detalle { font-size:12px; color:var(--ink-soft); margin-top:6px; }
+.marcador.total { border-top-color:var(--accent); }
+.marcador.cubierto { border-top-color:var(--ok); }
+.marcador.cubierto .cifra { color:var(--ok); }
+.marcador.libre { border-top-color:var(--warn); }
+.marcador.libre .cifra { color:var(--warn); }
+.marcador.libre.cero { border-top-color:var(--ok); }
+.marcador.libre.cero .cifra { color:var(--ok); }
+.barra-avance { height:8px; border-radius:20px; background:var(--line);
+  overflow:hidden; margin-top:10px; }
+.barra-avance > span { display:block; height:100%; background:var(--ok); border-radius:20px; }
+.por-grupo { display:flex; flex-direction:column; gap:5px; margin-top:8px; }
+.por-grupo .reng { display:flex; align-items:center; gap:8px; font-size:12px; }
+.por-grupo .reng b { min-width:74px; font-weight:650; }
+.por-grupo .reng .pista { flex:1; height:6px; border-radius:20px; background:var(--line); overflow:hidden; }
+.por-grupo .reng .pista span { display:block; height:100%; background:var(--ok); }
+.por-grupo .reng .cuenta { font:var(--mono); font-variant-numeric:tabular-nums;
+  color:var(--ink-soft); min-width:46px; text-align:right; }
+
+.dia-cierre { border:1px solid var(--line); border-radius:10px; margin-bottom:10px; overflow:hidden; }
+.dia-cierre > header { display:flex; align-items:center; gap:10px; padding:8px 13px;
+  background:var(--surface-2); border-bottom:1px solid var(--line); }
+.dia-cierre > header .fecha { font:700 14px var(--mono); }
+.dia-cierre > header .fecha small { font:400 12px var(--ui); color:var(--ink-soft); margin-left:6px; }
+.dia-cierre > header .cuenta { margin-left:auto; font-size:12px; font-weight:650; }
+.tarjetas-lugar { display:flex; flex-wrap:wrap; gap:8px; padding:11px 13px; }
+.lugar-chico { display:flex; align-items:center; gap:9px; padding:8px 12px; border-radius:9px;
+  min-width:190px; border:1px solid var(--line); background:var(--surface);
+  border-left:4px solid var(--line-firm); }
+.lugar-chico.ok { border-left-color:var(--ok); background:color-mix(in srgb,var(--ok-bg) 40%,var(--surface)); }
+.lugar-chico.falta { border-left-color:var(--warn); background:color-mix(in srgb,var(--warn-bg) 40%,var(--surface)); }
+.lugar-chico .turno-eti { display:grid; place-items:center; flex:none; width:34px; height:30px;
+  border-radius:7px; font:800 15px var(--mono); }
+.lugar-chico .turno-eti.t-C { background:var(--c-bg); color:var(--c-ink); }
+.lugar-chico .turno-eti.t-K { background:var(--k-bg); color:var(--k-ink); }
+.lugar-chico .turno-eti.t-O { background:var(--o-bg); color:var(--o-ink); }
+.lugar-chico .quienes { min-width:0; }
+.lugar-chico .quienes .grupo { font:700 10.5px var(--ui); color:var(--ink-soft);
+  text-transform:uppercase; letter-spacing:.05em; }
+.lugar-chico .quienes .gente { font-size:13px; font-weight:650; }
+.lugar-chico .quienes .gente .falta-txt { color:var(--warn); }
+.lugar-chico .quienes .abierto { font-size:10.5px; color:var(--ink-soft); margin-top:1px; }
+
+/* ---------- Personal ---------- */
+.paso-tab.secundaria { font-weight:450; opacity:.8; }
+.paso-tab.secundaria::before { content:"·"; margin-right:10px; opacity:.5; }
+.candado-abierto { color:var(--ok); font-weight:650; }
+.candado-cerrado { color:var(--ink-soft); }
+
+/* ---------- Panel lateral ---------- */
+.velo { position:fixed; inset:0; z-index:90; background:rgb(8 14 26/.5); }
+.panel { position:fixed; top:0; right:0; bottom:0; z-index:100; width:min(430px,100%);
+  background:var(--surface); border-left:1px solid var(--line);
+  box-shadow:-14px 0 44px rgb(8 14 26/.28); padding:20px; overflow-y:auto; }
+.panel .cerrar { position:absolute; top:14px; right:14px; width:30px; height:30px;
+  border-radius:7px; cursor:pointer; border:1px solid var(--line);
+  background:var(--surface-2); color:var(--ink-soft); font-size:18px; line-height:1; }
+.panel .cerrar:hover { color:var(--crit); border-color:var(--crit); }
+.panel h3 { font-size:16px; padding-right:34px; }
+.panel .sub { margin:3px 0 16px; font-size:12.5px; color:var(--ink-soft); }
+.acciones { display:flex; gap:10px; justify-content:flex-end; margin-top:18px;
+  padding-top:14px; border-top:1px solid var(--line); }
+.dos-campos { display:grid; grid-template-columns:1fr 1fr; gap:11px; margin-bottom:12px; }
+
+/* ---------- Selector de ronda ---------- */
+.sel-ronda { display:flex; align-items:center; gap:3px; padding:3px 4px 3px 9px;
+  border-radius:9px; border:1px solid var(--line); background:var(--surface-2); }
+.rot-ronda { font:800 10px var(--ui); letter-spacing:.08em; text-transform:uppercase;
+  color:var(--ink-soft); margin-right:3px; }
+.ronda-btn { width:26px; height:26px; border-radius:6px; cursor:pointer;
+  border:1px solid transparent; background:none; color:var(--ink-soft);
+  font:750 13px var(--mono); }
+.ronda-btn:hover { border-color:var(--line-firm); color:var(--ink); }
+.ronda-btn.activa { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+
+.caja > header .escalado { margin-left:0; padding:1px 7px; border-radius:20px;
+  font:700 10.5px var(--ui); background:var(--warn-bg); color:var(--warn);
+  border:1px solid var(--warn); }
+.lugar ol li .quien .otra-cat { display:inline-block; margin-left:6px; padding:0 6px;
+  border-radius:20px; font:700 10px var(--ui); vertical-align:1px;
+  background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn); }
+.lugar > header .abierto-a { font-size:11px; color:var(--ink-soft); }
+.explica-ronda { font-size:12.5px; color:var(--ink-soft); margin:0 0 12px;
+  padding:9px 12px; border-radius:9px; background:var(--surface-2);
+  border-left:3px solid var(--accent); max-width:80ch; }
+
+/* ---------- Diálogo de limpieza ---------- */
+#limpiar-todo { white-space:nowrap; }
+#limpiar-todo:hover { border-color:var(--warn); color:var(--warn); }
+.grupos-limpiar { display:flex; flex-direction:column; gap:2px; margin:12px 0; }
+.grupo-limpiar { display:flex; flex-direction:row; align-items:center; gap:10px;
+  padding:9px 11px; border:1px solid var(--line); border-radius:9px;
+  cursor:pointer; background:var(--surface-2); }
+.grupo-limpiar:hover { border-color:var(--line-firm); }
+.grupo-limpiar input { margin:0; }
+.grupo-limpiar .nombre { flex:1; font-size:13.5px; font-weight:600; }
+.grupo-limpiar .cuantos { font:12px var(--mono); font-variant-numeric:tabular-nums; color:var(--ink-soft); }
+.grupo-limpiar.se-borra { border-color:var(--warn);
+  background:color-mix(in srgb,var(--warn-bg) 40%,var(--surface-2)); }
+.grupo-limpiar.se-borra .cuantos { color:var(--warn); font-weight:700; }
+.grupo-limpiar .conserva { padding:1px 7px; border-radius:20px; font:700 10px var(--ui);
+  background:var(--ok-bg); color:var(--ok); border:1px solid var(--ok); }
+.grupo-limpiar.se-borra .conserva { background:var(--crit-bg); color:var(--crit); border-color:var(--crit); }
+.grupo-limpiar.vacio-ya { opacity:.5; }
+.confirmar-limpiar { display:flex; flex-direction:row; align-items:center; gap:10px;
+  flex-wrap:wrap; margin-top:14px; padding:12px; border-radius:9px;
+  background:var(--crit-bg); border:1px solid var(--crit); }
+.confirmar-limpiar label { flex-direction:row; color:var(--crit); font-weight:650; }
+.confirmar-limpiar input { width:130px; text-transform:uppercase; letter-spacing:.1em;
+  font-weight:700; text-align:center; }
+
+/* ---------- Avisos ---------- */
+.avisos { position:fixed; bottom:18px; right:18px; z-index:200;
+  display:flex; flex-direction:column; gap:8px; }
+.av { padding:11px 16px; border-radius:9px; font-size:13.5px; font-weight:550;
+  background:var(--surface); border:1px solid var(--line);
+  border-left:4px solid var(--accent); box-shadow:0 6px 24px rgb(8 14 26/.24);
+  max-width:360px; animation:llega .22s ease; }
+.av.ok { border-left-color:var(--ok); }
+.av.mal { border-left-color:var(--crit); }
+.av.ojo { border-left-color:var(--warn); }
+@keyframes llega { from { opacity:0; transform:translateX(16px); } }
+@media (prefers-reduced-motion:reduce) { .av { animation:none; } }
+</style>
+</head>
+<body>
+
+<!-- Sólo aparece si el navegador no deja guardar. Sin esto el trabajo se
+     perdería al cerrar la pestaña y nadie se enteraría hasta que fuera tarde. -->
+<div class="tira" id="sin-memoria" hidden>
+  <b>Ojo: este navegador no está guardando</b>
+  <span>Lo que captures se pierde al cerrar la pestaña. Usa Chrome o Edge, sal del
+  modo incógnito, y guarda una copia con <b>Respaldo</b> antes de cerrar.</span>
+</div>
+
+<header class="cab">
+  <div class="marca">
+    <span class="ins">TX</span>
+    <div><h1>Asignación de Tiempo Extra</h1><p>Torre de Control México</p></div>
+  </div>
+  <nav class="pasos" role="tablist">
+    <button class="paso-tab" role="tab" aria-selected="true"  data-vista="publicar"><i>1</i>Publicar</button>
+    <button class="paso-tab" role="tab" aria-selected="false" data-vista="solicitudes"><i>2</i>Solicitudes</button>
+    <button class="paso-tab" role="tab" aria-selected="false" data-vista="horas"><i>3</i>Horas</button>
+    <button class="paso-tab" role="tab" aria-selected="false" data-vista="asignar"><i>4</i>Asignar</button>
+    <button class="paso-tab" role="tab" aria-selected="false" data-vista="cierre"><i>5</i>Resumen</button>
+    <button class="paso-tab secundaria" role="tab" aria-selected="false" data-vista="personal">Personal</button>
+  </nav>
+  <div class="iconos">
+    <div class="sel-ronda" role="group" aria-label="Ronda de publicación">
+      <span class="rot-ronda">Ronda</span>
+      <button class="ronda-btn" data-ronda="1">1</button>
+      <button class="ronda-btn" data-ronda="2">2</button>
+      <button class="ronda-btn" data-ronda="3">3</button>
+    </div>
+    <button class="btn mini" id="respaldo" title="Guardar o recuperar una copia de todo">⬇ Respaldo</button>
+    <button class="btn mini" id="limpiar-todo" title="Vaciar y empezar una asignación nueva">⟳ Nueva asignación</button>
+    <button class="icono" id="tema" title="Cambiar entre claro y oscuro" aria-label="Cambiar tema">◐</button>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ 1 · PUBLICAR ============ -->
+<section class="vista" id="v-publicar" role="tabpanel">
+  <div class="tarjeta">
+    <h2>1 · Cuántos lugares hay</h2>
+    <p class="nota">
+      Anota cuántos lugares de tiempo extra hay cada día, por grupo y por turno.
+      Puede haber varios el mismo día y para más de un grupo a la vez.
+    </p>
+    <p class="nota">
+      Pasa el cursor por una casilla y salen los botones <b>−</b> y <b>+</b> para
+      subir o bajar con el mouse. También puedes teclear el número, y moverte por
+      la columna con las flechas ↑ ↓.
+    </p>
+    <div class="linea">
+      <label class="campo"><span class="rotulo">Desde</span>
+        <input type="date" id="p-desde"></label>
+      <label class="campo"><span class="rotulo">Cuántos días</span>
+        <select id="p-dias">
+          <option value="7">7 días</option>
+          <option value="14" selected>14 días</option>
+          <option value="21">21 días</option>
+          <option value="31">31 días</option>
+        </select></label>
+      <button class="btn" id="p-vaciar">Vaciar este rango</button>
+      <button class="btn plano" id="p-ejemplo">Cargar un ejemplo completo</button>
+      <span class="nota" id="p-conteo" style="margin:0 0 8px auto"></span>
+    </div>
+    <div id="p-matriz"></div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Mensajes para los grupos</h2>
+    <p class="explica-ronda" id="p-explica"></p>
+    <p class="nota">
+      Se publica siempre <b>lo que falta por cubrir</b>: lo que ya se asignó no
+      se vuelve a ofrecer.
+    </p>
+    <div class="linea">
+      <label class="check"><input type="checkbox" id="p-dow"> Incluir el día de la semana</label>
+    </div>
+    <div id="p-mensajes" class="cajas"></div>
+    <div class="pie-paso">
+      <button class="btn fuerte grande" data-ir="solicitudes">Siguiente · anotar quién pidió →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2 · SOLICITUDES ============ -->
+<section class="vista" id="v-solicitudes" role="tabpanel" hidden>
+  <div class="par">
+    <div class="tarjeta">
+      <h2>2 · Anota lo que pidió cada quien</h2>
+      <p class="nota">
+        Escribe las siglas y luego los días con su turno, como te los dijeron.
+        Se entiende igual <code>12 en C, 14 en C, 15 C y K</code> que
+        <code>12c 14c 15 c y k</code>.
+      </p>
+      <label class="campo" style="margin-bottom:6px"><span class="rotulo">Siglas</span>
+        <input type="text" id="s-siglas" maxlength="3" placeholder="CE" autocomplete="off"
+               list="lista-siglas" class="siglas-grande"></label>
+      <datalist id="lista-siglas"></datalist>
+      <p class="nota" id="s-quien" style="min-height:19px"></p>
+      <label class="campo"><span class="rotulo">Qué pidió</span>
+        <textarea id="s-texto" rows="3" placeholder="12 en C, 14 en C, 15 C y K"></textarea></label>
+      <div class="linea"><button class="btn fuerte" id="s-agregar">Agregar</button></div>
+      <p class="nota">Al agregar, el cursor vuelve a las siglas para seguir con el siguiente.</p>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Solicitudes capturadas</h2>
+      <p class="nota" id="s-conteo"></p>
+      <div id="s-lista"></div>
+      <div class="pie-paso">
+        <button class="btn" data-ir="publicar">← Volver a publicar</button>
+        <button class="btn fuerte grande" data-ir="horas">Siguiente · anotar las horas →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 · HORAS ============ -->
+<section class="vista" id="v-horas" role="tabpanel" hidden>
+  <div class="tarjeta">
+    <h2>3 · Horas que lleva cada quien</h2>
+    <p class="nota">
+      Sólo quienes pidieron algo. Anota las horas que llevan <b>trabajadas</b> al
+      día de hoy, tal como vengan del conteo. El sistema no les suma lo que está
+      por asignarse. Con <b>Enter</b> saltas al siguiente.
+    </p>
+    <div class="linea">
+      <span class="nota" id="h-aviso" style="margin:0 0 8px auto"></span>
+    </div>
+    <div id="h-tabla"></div>
+    <div class="pie-paso">
+      <button class="btn" data-ir="solicitudes">← Volver a solicitudes</button>
+      <button class="btn fuerte grande" data-ir="asignar">Siguiente · ver la sugerencia →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4 · ASIGNAR ============ -->
+<section class="vista" id="v-asignar" role="tabpanel" hidden>
+  <div class="tarjeta">
+    <h2>4 · A quién asignarle</h2>
+    <p class="nota">
+      Lugar por lugar, quién lo pidió ordenado de <b>menos a más horas
+      trabajadas</b>. El primero de cada lista es la sugerencia; la decisión
+      sigue siendo tuya.
+    </p>
+    <div class="linea">
+      <label class="check"><input type="checkbox" id="a-pendientes"> Sólo lugares sin cubrir</label>
+      <span class="nota" id="a-conteo" style="margin:0 0 8px auto"></span>
+    </div>
+    <div id="a-lista"></div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Mensajes de asignación</h2>
+    <p class="nota">Uno por grupo, con su acuse, listos para copiar y pegar.</p>
+    <div id="a-mensajes" class="cajas"></div>
+    <div class="pie-paso">
+      <button class="btn" data-ir="horas">← Volver a las horas</button>
+      <button class="btn fuerte grande" data-ir="cierre">
+        Siguiente · ver qué quedó pendiente →
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 · RESUMEN ============ -->
+<section class="vista" id="v-cierre" role="tabpanel" hidden>
+  <div class="tablero" id="c-tablero"></div>
+
+  <div class="tarjeta">
+    <h2>Todavía sin cubrir</h2>
+    <p class="nota">
+      Lo que falta por asignar. En la ronda 2 o 3 dice también a qué grupos ya
+      se les está ofreciendo.
+    </p>
+    <div id="c-pendientes"></div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Ya cubierto</h2>
+    <div id="c-cubiertos"></div>
+    <div class="pie-paso">
+      <button class="btn" data-ir="asignar">← Volver a asignar</button>
+      <button class="btn" data-ir="publicar">Publicar la siguiente ronda</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PERSONAL ============ -->
+<section class="vista" id="v-personal" role="tabpanel" hidden>
+  <div class="tarjeta">
+    <h2>Catálogo de personal</h2>
+    <p class="nota">
+      Aquí se da de alta al personal, se cambia de categoría a quien asciende y
+      se da de baja a quien deja la torre. <b>Para modificar hace falta la clave.</b>
+      Consultar la lista es libre.
+    </p>
+    <div class="linea">
+      <label class="campo"><span class="rotulo">Clave</span>
+        <input type="password" id="pe-clave" inputmode="numeric" maxlength="16"
+               placeholder="••••" style="width:120px"></label>
+      <button class="btn fuerte" id="pe-desbloquear">Desbloquear</button>
+      <button class="btn mini" id="pe-cambiar" disabled>Cambiar clave</button>
+      <span class="nota" id="pe-estado" style="margin:0 0 8px 0"></span>
+    </div>
+    <p class="nota" style="font-size:11.5px;opacity:.85">
+      La clave evita cambios de pasada; no es una medida de seguridad. Quien
+      abra el archivo con un editor de texto la puede ver, y son cuatro dígitos:
+      sirve para que nadie mueva el catálogo sin querer, nada más.
+    </p>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Personal</h2>
+    <div class="linea">
+      <button class="btn fuerte" id="pe-nueva" disabled>Agregar persona</button>
+      <label class="campo"><span class="rotulo">Buscar</span>
+        <input type="search" id="pe-buscar" placeholder="siglas o nombre"></label>
+      <span class="nota" id="pe-conteo" style="margin:0 0 8px auto"></span>
+    </div>
+    <div id="pe-tabla"></div>
+  </div>
+</section>
+
+</main>
+<div class="velo" id="velo" hidden></div>
+<aside class="panel" id="panel" role="dialog" aria-modal="true" hidden></aside>
+<div class="avisos" id="avisos"></div>
+
+<script>
+'use strict';
+
+/* ==========================================================================
+   Catálogo y constantes
+   ========================================================================== */
+
+const TURNOS = {
+  C: { ini:'07:00', fin:'14:00', h:7  },
+  K: { ini:'14:00', fin:'21:00', h:7  },
+  O: { ini:'21:00', fin:'07:00', h:10 },
+};
+const TRONCALES = ['C','K','O'];
+const GRUPOS = { SUPERVISOR:"Supervisores TWR MEX", ATCO:"ATCO's TWR MEX", AUX:"AUX's TWR MEX" };
+const ORDEN = ['SUPERVISOR','ATCO','AUX'];
+const TITULO = { SUPERVISOR:'Supervisores', ATCO:'ATCO (TWR)', AUX:'Auxiliares' };
+const DIAS_LARGOS = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo'];
+//: Máximo de días seguidos con tiempo extra antes de avisar.
+const MAX_DIAS_SEGUIDOS = 2;
+
+//: Escalafón de menor a mayor alcance. Quien está arriba cubre lo de abajo,
+//: nunca al revés: un auxiliar no puede tomar un lugar de torre.
+const JERARQUIA = ['AUX','ATCO','SUPERVISOR'];
+
+//: Cuántos escalones sube un lugar sobrante en cada ronda. El tiempo extra
+//: sólo sube; lo de supervisor ya está en la punta.
+const ESCALONES = {
+  1: { AUX:0, ATCO:0, SUPERVISOR:0 },
+  2: { AUX:1, ATCO:0, SUPERVISOR:0 },
+  3: { AUX:2, ATCO:1, SUPERVISOR:0 },
+};
+
+const EXPLICA_RONDA = {
+  1: 'Ronda 1 · cada grupo ve sólo lo de su categoría.',
+  2: 'Ronda 2 · lo que sobró de auxiliares sube también al grupo de torre.',
+  3: 'Ronda 3 · lo sobrante sube todo lo que puede: lo de auxiliares llega hasta '
+   + 'supervisores y lo de torre hasta supervisores. Lo de supervisor nunca baja.',
+};
+
+/** A qué grupos se le ofrece un lugar de esa categoría en esa ronda. */
+function alcance(categoria, ronda) {
+  const base = JERARQUIA.indexOf(categoria);
+  if (base < 0) return [];
+  return JERARQUIA.slice(base, base + (ESCALONES[ronda] || ESCALONES[1])[categoria] + 1);
+}
+
+/** True si esa categoría alcanza para cubrir ese lugar. */
+const puedeCubrir = (dePersona, deLugar) =>
+  JERARQUIA.indexOf(dePersona) >= JERARQUIA.indexOf(deLugar);
+
+const ENCABEZADO_OTRA = 'TX disponible aún de otra categoría:';
+const SALUDOS_RONDA = {
+  1: 'Buen día, TX disponible:',
+  2: 'Buen día, sigue disponible TX:',
+  3: 'Buen día, sigue disponible TX:',
+};
+
+//: Plantilla con que arranca el catálogo la primera vez. A partir de ahí manda
+//: lo que esté guardado: las altas, bajas y cambios de categoría se conservan.
+const PERSONAL_INICIAL = [{"i":"GH","n":"GUILLERMO HERNÁNDEZ JAIME","c":"SUPERVISOR"},{"i":"KB","n":"KARINA BELEM MASCAREÑAS BUENDÍA","c":"SUPERVISOR"},{"i":"EZ","n":"ERIK ENRIQUE ZÁRATE PEÑA","c":"SUPERVISOR"},{"i":"CF","n":"IVÁN CEDILLO FERNÁNDEZ","c":"SUPERVISOR"},{"i":"VS","n":"GABRIEL ISRAEL VÁZQUEZ SOLORIO","c":"SUPERVISOR"},{"i":"AH","n":"MANUEL ALEJANDRO HERNÁNDEZ ROSAS","c":"SUPERVISOR"},{"i":"HR","n":"MARÍA GUADALUPE HERNÁNDEZ ROMERO","c":"SUPERVISOR"},{"i":"KR","n":"GABRIELA BERNARDINO CHÁVEZ","c":"SUPERVISOR"},{"i":"JM","n":"JENNIFER DENISSE APODACA CONTRERAS","c":"SUPERVISOR"},{"i":"CE","n":"CARLOS ERNESTO SÁNCHEZ LOZANO","c":"SUPERVISOR"},{"i":"JN","n":"ERNESTO CARDONA CONTRERAS","c":"SUPERVISOR"},{"i":"MR","n":"MAURICIO REYES PÉREZ","c":"SUPERVISOR"},{"i":"GS","n":"JORGE ALEJANDRO GONZÁLEZ SALINAS","c":"SUPERVISOR"},{"i":"AF","n":"JOSÉ ALFREDO FLORES AVILÉS","c":"SUPERVISOR"},{"i":"VC","n":"VÍCTOR RAÚL CAMPILLA CASTILLO","c":"SUPERVISOR"},{"i":"FX","n":"FERNANDO OCTAVIO CARRERA GONZÁLEZ","c":"SUPERVISOR"},{"i":"DT","n":"DT","c":"ATCO"},{"i":"RH","n":"RH","c":"ATCO"},{"i":"OA","n":"OA","c":"ATCO"},{"i":"KM","n":"KM","c":"ATCO"},{"i":"CT","n":"CT","c":"ATCO"},{"i":"ZL","n":"ZL","c":"ATCO"},{"i":"EC","n":"EC","c":"ATCO"},{"i":"LC","n":"LC","c":"ATCO"},{"i":"CR","n":"CR","c":"ATCO"},{"i":"DR","n":"DR","c":"ATCO"},{"i":"ZT","n":"ZT","c":"ATCO"},{"i":"RV","n":"RV","c":"ATCO"},{"i":"OZ","n":"OZ","c":"ATCO"},{"i":"AM","n":"AM","c":"ATCO"},{"i":"GZ","n":"GZ","c":"ATCO"},{"i":"ED","n":"ED","c":"ATCO"},{"i":"IA","n":"IA","c":"ATCO"},{"i":"LL","n":"LL","c":"ATCO"},{"i":"QR","n":"QR","c":"ATCO"},{"i":"HZ","n":"HZ","c":"ATCO"},{"i":"YY","n":"YY","c":"ATCO"},{"i":"VO","n":"VO","c":"AUX"},{"i":"NY","n":"NY","c":"AUX"},{"i":"EG","n":"EG","c":"AUX"},{"i":"JJ","n":"JJ","c":"AUX"},{"i":"ZA","n":"ZA","c":"AUX"},{"i":"BR","n":"BR","c":"AUX"},{"i":"NN","n":"NN","c":"AUX"},{"i":"HB","n":"HB","c":"AUX"},{"i":"MB","n":"MB","c":"AUX"},{"i":"FB","n":"FB","c":"AUX"},{"i":"PE","n":"PE","c":"AUX"},{"i":"AR","n":"AR","c":"AUX"},{"i":"VG","n":"VG","c":"AUX"},{"i":"RJ","n":"RJ","c":"AUX"}];
+
+/* ==========================================================================
+   Estado
+   ========================================================================== */
+
+const CLAVE = 'tx-twr-v2';
+const CLAVE_INICIAL = '0348';
+
+//: Todo lo capturado vive aquí y se escribe completo en cada cambio. Es poca
+//: cosa —unos cuantos kilobytes— así que no vale la pena guardar por partes.
+let estado = { cupos:{}, peticiones:{}, horas:{}, asignados:{},
+               personal:null, clave:CLAVE_INICIAL, ronda:1,
+               desde:null, dias:7 };
+
+//: Referencia viva al catálogo, para no andar escribiendo estado.personal.
+let PERSONAL = [];
+
+//: Queda en false si el navegador bloquea el guardado (incógnito, o Safari
+//: abriendo el archivo desde el disco). El aviso de arriba depende de esto.
+let hayMemoria = true;
+
+function cargar() {
+  try {
+    const crudo = localStorage.getItem(CLAVE);
+    if (crudo) estado = { ...estado, ...JSON.parse(crudo) };
+  } catch { /* si el navegador lo bloquea, se trabaja en memoria */ }
+  for (const k of ['cupos','peticiones','horas','asignados']) estado[k] = estado[k] || {};
+  if (!Array.isArray(estado.personal)) estado.personal = PERSONAL_INICIAL.map(p => ({ ...p }));
+  if (!estado.clave) estado.clave = CLAVE_INICIAL;
+  if (!ESCALONES[estado.ronda]) estado.ronda = 1;
+  PERSONAL = estado.personal;
+}
+
+function guardar() {
+  try {
+    localStorage.setItem(CLAVE, JSON.stringify(estado));
+    hayMemoria = true;
+  } catch {
+    hayMemoria = false;
+    const aviso = $('#sin-memoria');
+    if (aviso) aviso.hidden = false;
+  }
+}
+
+const $  = (s,r=document) => r.querySelector(s);
+const $$ = (s,r=document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function avisar(texto, tipo='ok', ms=4000) {
+  const el = document.createElement('div');
+  el.className = `av ${tipo}`;
+  el.textContent = texto;
+  $('#avisos').append(el);
+  setTimeout(() => { el.style.transition='opacity .25s'; el.style.opacity='0';
+                     setTimeout(() => el.remove(), 260); }, ms);
+}
+
+function abrirPanel(html) {
+  $('#panel').innerHTML = html;
+  $('#panel').hidden = false;
+  $('#velo').hidden = false;
+}
+function cerrarPanel() {
+  $('#panel').hidden = true;
+  $('#velo').hidden = true;
+}
+
+/** Vuelve a armar la lista que sugiere siglas al capturar solicitudes. */
+function refrescarSiglas() {
+  $('#lista-siglas').innerHTML = PERSONAL
+    .map(p => `<option value="${esc(p.i)}">${esc(p.n)} · ${TITULO[p.c]}</option>`).join('');
+}
+
+const persona = (sig) => PERSONAL.find(p => p.i === sig);
+const nombreCorto = (n) => { const p = n.split(/\s+/); return p.length <= 2 ? n : p.slice(0,2).join(' '); };
+
+const masDias = (f,n) => { const d = new Date(f+'T12:00:00'); d.setDate(d.getDate()+n);
+                           return d.toISOString().slice(0,10); };
+
+//: La fecha de hoy en el huso de la computadora. toISOString() daría UTC, que
+//: en México va adelantado y de noche pinta el día siguiente.
+function hoyLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function ventana() {
+  const desde = $('#p-desde').value || hoyLocal();
+  const cuantos = Number($('#p-dias').value);
+  const dias = [];
+  for (let i = 0; i < cuantos; i++) {
+    const f = masDias(desde, i);
+    const jsd = new Date(f+'T12:00:00');
+    const dow = (jsd.getDay()+6) % 7;
+    dias.push({ f, d: jsd.getDate(), dow, largo: DIAS_LARGOS[dow], fds: dow >= 5 });
+  }
+  return dias;
+}
+
+/* ==========================================================================
+   Lectura de «12 en C, 14 en C, 15 C y K»
+   ========================================================================== */
+
+const _DIAS_SEM = /\b(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b/gi;
+// Varios días y un turno al final: «11, 12 y 15 en K»
+const _VARIOS = /(\d{1,2}(?:\s*(?:,|y)\s*\d{1,2})+)\s*(?:en\s+)?([CKOcko](?:\s*[,y+]\s*[CKOcko])*)/g;
+// Un día con sus turnos: «12 en C y K», «15c», «4 c+k»
+const _UNO = /\b(\d{1,2})\s*(?:en\s+)?([CKOcko](?:\s*[,y+]\s*[CKOcko])*)/g;
+
+/** Convierte un número de día en fecha, dentro de la ventana publicada. */
+function resolverDia(n, dias) {
+  const hallado = dias.find(d => d.d === n);
+  return hallado ? hallado.f : null;
+}
+
+function leerPeticion(texto, dias) {
+  const limpio = texto.replace(_DIAS_SEM, ' ');
+  const salida = new Set();
+  const tomados = [];
+
+  for (const m of limpio.matchAll(_VARIOS)) {
+    const numeros = m[1].match(/\d{1,2}/g).map(Number);
+    const turnos = m[2].toUpperCase().split(/[^CKO]+/).filter(Boolean);
+    for (const n of numeros) for (const t of turnos) {
+      const f = resolverDia(n, dias);
+      if (f) salida.add(`${f}|${t}`);
+    }
+    tomados.push([m.index, m.index + m[0].length]);
+  }
+
+  for (const m of limpio.matchAll(_UNO)) {
+    if (tomados.some(([a,b]) => m.index >= a && m.index < b)) continue;
+    const turnos = m[2].toUpperCase().split(/[^CKO]+/).filter(Boolean);
+    for (const t of turnos) {
+      const f = resolverDia(Number(m[1]), dias);
+      if (f) salida.add(`${f}|${t}`);
+    }
+  }
+  return [...salida].sort();
+}
+
+/* ==========================================================================
+   1 · Publicar
+   ========================================================================== */
+
+const kCupo = (f,g,t) => `${f}|${g}|${t}`;
+
+function pintarMatriz() {
+  const dias = ventana();
+  const cupos = estado.cupos;
+
+  const cabG = ORDEN.map(g => `<th class="gcab g-${g}" colspan="3">${TITULO[g]}</th>`).join('');
+  const cabT = ORDEN.map(() => TRONCALES.map((t,i) =>
+    `<th class="${i===2?'corte':''}">${t}</th>`).join('')).join('');
+
+  const cuerpo = dias.map(d => {
+    const celdas = ORDEN.map(g => TRONCALES.map((t,i) => {
+      const v = cupos[kCupo(d.f,g,t)] || '';
+      const et = `${TITULO[g]} en turno ${t} el ${d.d}`;
+      return `<td class="${i===2?'corte':''}"><div class="paso-num">
+        <button type="button" class="paso-btn" data-delta="-1" tabindex="-1"
+                aria-label="Un lugar menos de ${et}">−</button>
+        <input type="number" class="cupo ${v?'puesto':''}" min="0" max="20" placeholder="·"
+               value="${v}" data-f="${d.f}" data-g="${g}" data-t="${t}"
+               aria-label="Lugares de ${et}">
+        <button type="button" class="paso-btn" data-delta="1" tabindex="-1"
+                aria-label="Un lugar más de ${et}">+</button>
+      </div></td>`;
+    }).join('')).join('');
+    const total = ORDEN.reduce((s,g) => s + TRONCALES.reduce((x,t) =>
+      x + (cupos[kCupo(d.f,g,t)]||0), 0), 0);
+    return `<tr class="${d.fds?'fds':''}">
+      <td class="dcel"><b>${d.d}</b><small>${d.largo.slice(0,3)}</small></td>
+      ${celdas}<td class="tot">${total||''}</td></tr>`;
+  }).join('');
+
+  const sumas = ORDEN.map(g => TRONCALES.map((t,i) => {
+    const s = dias.reduce((x,d) => x + (cupos[kCupo(d.f,g,t)]||0), 0);
+    return `<td class="${i===2?'corte':''}">${s||''}</td>`;
+  }).join('')).join('');
+  const gran = dias.reduce((s,d) => s + ORDEN.reduce((x,g) =>
+    x + TRONCALES.reduce((y,t) => y + (cupos[kCupo(d.f,g,t)]||0), 0), 0), 0);
+
+  $('#p-matriz').innerHTML = `<div class="matriz-marco"><table class="matriz">
+    <thead><tr><th class="dcab" rowspan="2">Día</th>${cabG}<th rowspan="2">Total</th></tr>
+    <tr>${cabT}</tr></thead>
+    <tbody>${cuerpo}
+      <tr class="suma"><td class="dcel">Total</td>${sumas}<td class="tot">${gran||''}</td></tr>
+    </tbody></table></div>`;
+
+  $('#p-conteo').textContent = gran ? `${gran} lugar(es) en el rango`
+                                    : 'Todavía no hay lugares capturados';
+
+  $$('#p-matriz input.cupo').forEach(campo => {
+    campo.addEventListener('change', () => fijarCupo(campo, campo.value));
+    campo.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { campo.blur(); return; }
+      const paso = { ArrowUp:-1, ArrowDown:1 }[e.key];
+      if (!paso) return;
+      e.preventDefault();
+      const todos = $$('#p-matriz input.cupo');
+      const destino = todos[todos.indexOf(campo) + paso*9];
+      if (destino) { destino.focus(); destino.select(); }
+    });
+  });
+  $$('#p-matriz .paso-btn').forEach(b => b.addEventListener('click', () => {
+    const campo = $('input.cupo', b.parentElement);
+    fijarCupo(campo, (Number(campo.value)||0) + Number(b.dataset.delta));
+  }));
+}
+
+/** Cambia una casilla sin repintar la tabla, para no perder el cursor. */
+function fijarCupo(campo, crudo) {
+  const n = Math.max(0, Math.min(20, Number(crudo) || 0));
+  const k = kCupo(campo.dataset.f, campo.dataset.g, campo.dataset.t);
+  if (n) estado.cupos[k] = n; else delete estado.cupos[k];
+  guardar();
+  campo.value = n || '';
+  campo.classList.toggle('puesto', n > 0);
+  recalcularTotales();
+  pintarMensajesPublicacion();
+}
+
+function recalcularTotales() {
+  const filas = $$('#p-matriz tbody tr:not(.suma)');
+  const cols = []; let gran = 0;
+  filas.forEach(fila => {
+    let suma = 0;
+    $$('input.cupo', fila).forEach((c,i) => {
+      const n = Number(c.value)||0; suma += n; cols[i] = (cols[i]||0) + n;
+    });
+    const celda = $('.tot', fila); if (celda) celda.textContent = suma || '';
+    gran += suma;
+  });
+  const pie = $('#p-matriz tr.suma');
+  if (pie) {
+    $$('td', pie).slice(1,-1).forEach((c,i) => { c.textContent = cols[i] || ''; });
+    const u = $('.tot', pie); if (u) u.textContent = gran || '';
+  }
+  $('#p-conteo').textContent = gran ? `${gran} lugar(es) en el rango`
+                                    : 'Todavía no hay lugares capturados';
+}
+
+const enumerar = (p) => p.length === 1 ? p[0] : p.slice(0,-1).join(', ') + ' y ' + p.at(-1);
+
+function redactarPublicacion(porDia, conDow, saludo) {
+  const lineas = [saludo];
+  for (const f of Object.keys(porDia).sort()) {
+    const delDia = TRONCALES.filter(t => porDia[f][t]).map(t => [t, porDia[f][t]]);
+    if (!delDia.length) continue;
+    const jsd = new Date(f+'T12:00:00');
+    const dow = (jsd.getDay()+6)%7;
+    const eti = conDow ? `${DIAS_LARGOS[dow]} ${jsd.getDate()}` : String(jsd.getDate());
+    if (delDia.every(([,n]) => n === 1)) {
+      lineas.push(`${eti} en ${enumerar(delDia.map(([t]) => t))}`);
+    } else {
+      // Con cupos va una línea por turno, como «sábado 1 en C (4)».
+      for (const [t,n] of delDia) lineas.push(`${eti} en ${t}${n>1?` (${n})`:''}`);
+    }
+  }
+  return lineas.length > 1 ? lineas.join('\n') : '';
+}
+
+/** Lo que falta por cubrir de cada lugar: lo asignado ya no se republica. */
+function faltantes() {
+  const salida = [];
+  for (const d of ventana()) for (const g of ORDEN) for (const t of TRONCALES) {
+    const cupos = estado.cupos[kCupo(d.f,g,t)] || 0;
+    if (!cupos) continue;
+    const cubiertos = (estado.asignados[kAsig(d.f,t)] || [])
+      .filter(sig => persona(sig) && persona(sig).c === g).length;
+    const libres = Math.max(0, cupos - cubiertos);
+    if (libres) salida.push({ f: d.f, g, t, cupos: libres });
+  }
+  return salida;
+}
+
+function pintarMensajesPublicacion() {
+  const conDow = $('#p-dow').checked;
+  const ronda = estado.ronda;
+  $('#p-explica').textContent = EXPLICA_RONDA[ronda];
+  $$('.ronda-btn').forEach(b => b.classList.toggle('activa', Number(b.dataset.ronda) === ronda));
+
+  const propias = {}, otras = {};
+  for (const v of faltantes()) {
+    for (const grupo of alcance(v.g, ronda)) {
+      const destino = grupo === v.g ? propias : otras;
+      ((destino[grupo] = destino[grupo] || {})[v.f] ||= {})[v.t] = v.cupos;
+    }
+  }
+
+  const cajas = [];
+  for (const g of ORDEN) {
+    const partes = [];
+    let propios = 0, deOtra = 0;
+    const cuenta = (m) => Object.values(m || {}).reduce(
+      (s,dia) => s + Object.values(dia).reduce((x,n) => x+n, 0), 0);
+
+    if (propias[g]) {
+      partes.push(redactarPublicacion(propias[g], conDow, SALUDOS_RONDA[ronda]));
+      propios = cuenta(propias[g]);
+    }
+    if (otras[g]) {
+      partes.push(redactarPublicacion(otras[g], conDow, ENCABEZADO_OTRA));
+      deOtra = cuenta(otras[g]);
+    }
+    const mensaje = partes.filter(Boolean).join('\n\n');
+    if (mensaje) cajas.push({ g, mensaje, lugares: propios + deOtra, deOtra });
+  }
+
+  pintarCajas('#p-mensajes', cajas,
+    faltantes().length ? 'Nada que ofrecer a estos grupos en esta ronda.'
+                       : 'Captura lugares arriba y aquí aparecen los mensajes.');
+}
+
+function pintarCajas(destino, cajas, vacio) {
+  const cont = $(destino);
+  if (!cajas.length) { cont.innerHTML = `<p class="hueco">${vacio}</p>`; return; }
+  cont.innerHTML = cajas.map((c,i) => `
+    <div class="caja g-${c.g}">
+      <header><b>${esc(GRUPOS[c.g])}</b>
+        ${c.deOtra ? `<span class="escalado">${c.deOtra} de otra categoría</span>` : ''}
+        <span>${c.lugares} lugar(es)</span></header>
+      <pre id="${destino.slice(1)}-${i}">${esc(c.mensaje)}</pre>
+      <footer><button class="btn mini" data-copiar="${destino.slice(1)}-${i}">Copiar mensaje</button></footer>
+    </div>`).join('');
+  $$('[data-copiar]', cont).forEach(b => b.addEventListener('click', async () => {
+    const nodo = document.getElementById(b.dataset.copiar);
+    try { await navigator.clipboard.writeText(nodo.textContent); avisar('Mensaje copiado'); }
+    catch {
+      const r = document.createRange(); r.selectNodeContents(nodo);
+      getSelection().removeAllRanges(); getSelection().addRange(r);
+      avisar('Selecciónalo y copia con Ctrl+C', 'ojo');
+    }
+  }));
+}
+
+/* ==========================================================================
+   2 · Solicitudes
+   ========================================================================== */
+
+function mostrarQuienEs() {
+  const sig = $('#s-siglas').value.trim().toUpperCase();
+  const nodo = $('#s-quien');
+  if (!sig) { nodo.textContent = ''; return; }
+  const p = persona(sig);
+  if (p) {
+    nodo.innerHTML = `<b>${esc(p.n)}</b> · ${TITULO[p.c]}`;
+    nodo.style.color = '';
+  } else {
+    nodo.textContent = `No hay nadie con las siglas ${sig}.`;
+    nodo.style.color = 'var(--crit)';
+  }
+}
+
+function agregarSolicitud() {
+  const sig = $('#s-siglas').value.trim().toUpperCase();
+  const texto = $('#s-texto').value.trim();
+  if (!sig) { avisar('Escribe las siglas', 'ojo'); $('#s-siglas').focus(); return; }
+  if (!persona(sig)) { avisar(`No hay nadie con las siglas ${sig}`, 'mal'); return; }
+  if (!texto) { avisar('Escribe qué días pidió', 'ojo'); $('#s-texto').focus(); return; }
+
+  const dias = ventana();
+  const halladas = leerPeticion(texto, dias);
+  if (!halladas.length) {
+    avisar(`No entendí «${texto}». Escríbelo como «12 en C, 14 en C, 15 C y K».`, 'mal', 7000);
+    return;
+  }
+
+  for (const clave of halladas) estado.peticiones[`${sig}|${clave}`] = true;
+  guardar();
+  avisar(`${sig}: ${halladas.map(k => {
+    const [f,t] = k.split('|'); return `${Number(f.slice(8))}${t}`;
+  }).join(', ')}`);
+
+  $('#s-siglas').value = '';
+  $('#s-texto').value = '';
+  $('#s-quien').textContent = '';
+  $('#s-siglas').focus();
+  pintarSolicitudes();
+}
+
+/** Todas las peticiones dentro de la ventana, agrupadas por persona. */
+function peticionesEnVentana() {
+  const fechas = new Set(ventana().map(d => d.f));
+  const porPersona = {};
+  for (const clave of Object.keys(estado.peticiones)) {
+    const [sig, f, t] = clave.split('|');
+    if (!fechas.has(f) || !persona(sig)) continue;
+    (porPersona[sig] = porPersona[sig] || []).push({ clave, f, t });
+  }
+  for (const lista of Object.values(porPersona)) lista.sort((a,b) => a.f.localeCompare(b.f) || a.t.localeCompare(b.t));
+  return porPersona;
+}
+
+function pintarSolicitudes() {
+  const porPersona = peticionesEnVentana();
+  const siglas = Object.keys(porPersona);
+  const total = siglas.reduce((s,k) => s + porPersona[k].length, 0);
+
+  $('#s-conteo').textContent = siglas.length
+    ? `${siglas.length} persona(s), ${total} solicitud(es)`
+    : 'Todavía no hay solicitudes capturadas.';
+
+  const cont = $('#s-lista');
+  if (!siglas.length) { cont.innerHTML = '<p class="hueco">Captura la primera a la izquierda.</p>'; return; }
+
+  const porCat = {};
+  for (const sig of siglas) (porCat[persona(sig).c] = porCat[persona(sig).c] || []).push(sig);
+
+  cont.innerHTML = ORDEN.filter(g => porCat[g]).map(g => `
+    <div class="grupo-sol">
+      <h3>${TITULO[g]} · ${porCat[g].length}</h3>
+      ${porCat[g].sort().map(sig => `
+        <div class="reng-sol">
+          <span class="sig">${esc(sig)}</span>
+          <div class="fichas">${porPersona[sig].map(q => `
+            <span class="ficha t-${q.t}">${Number(q.f.slice(8))} ${q.t}
+              <button data-quitar="${esc(q.clave)}" title="Quitar" aria-label="Quitar">×</button>
+            </span>`).join('')}</div>
+        </div>`).join('')}
+    </div>`).join('');
+
+  $$('[data-quitar]', cont).forEach(b => b.addEventListener('click', () => {
+    delete estado.peticiones[b.dataset.quitar];
+    guardar();
+    pintarSolicitudes();
+  }));
+}
+
+/* ==========================================================================
+   3 · Horas trabajadas
+   ========================================================================== */
+
+function pintarHoras() {
+  const porPersona = peticionesEnVentana();
+  const siglas = Object.keys(porPersona).sort((a,b) =>
+    ORDEN.indexOf(persona(a).c) - ORDEN.indexOf(persona(b).c) || a.localeCompare(b));
+
+  const cont = $('#h-tabla');
+  if (!siglas.length) {
+    cont.innerHTML = '<p class="hueco">Nadie ha pedido nada todavía. Vuelve al paso 2.</p>';
+    $('#h-aviso').textContent = '';
+    return;
+  }
+
+  let catPrevia = null;
+  const filas = siglas.map(sig => {
+    const p = persona(sig);
+    const encabezado = p.c !== catPrevia ? `<tr class="grupo"><td colspan="4">${TITULO[p.c]}</td></tr>` : '';
+    catPrevia = p.c;
+    const pedidos = porPersona[sig]
+      .map(q => `<span class="chip t-${q.t}">${Number(q.f.slice(8))}${q.t}</span>`).join(' ');
+    return encabezado + `<tr>
+      <td><span class="chip">${esc(sig)}</span></td>
+      <td>${esc(nombreCorto(p.n))}</td>
+      <td>${pedidos}</td>
+      <td><input type="number" step="0.5" min="0" class="horas-capt" data-sig="${esc(sig)}"
+            value="${estado.horas[sig] ?? ''}" placeholder="—"
+            aria-label="Horas trabajadas de ${esc(sig)}"></td>
+    </tr>`;
+  }).join('');
+
+  cont.innerHTML = `<div class="marco-tabla"><table class="tabla">
+    <thead><tr><th>Siglas</th><th>Nombre</th><th>Qué pidió</th><th>Horas trabajadas</th></tr></thead>
+    <tbody>${filas}</tbody></table></div>`;
+
+  const faltan = siglas.filter(s => estado.horas[s] == null);
+  $('#h-aviso').textContent = faltan.length
+    ? `Faltan las horas de: ${faltan.join(', ')}` : 'Todas las horas están capturadas';
+  $('#h-aviso').style.color = faltan.length ? 'var(--warn)' : 'var(--ok)';
+
+  $$('.horas-capt', cont).forEach(campo => {
+    campo.addEventListener('change', () => {
+      const sig = campo.dataset.sig;
+      if (campo.value === '') delete estado.horas[sig];
+      else estado.horas[sig] = Number(campo.value);
+      guardar();
+      const faltan2 = siglas.filter(s => estado.horas[s] == null);
+      $('#h-aviso').textContent = faltan2.length
+        ? `Faltan las horas de: ${faltan2.join(', ')}` : 'Todas las horas están capturadas';
+      $('#h-aviso').style.color = faltan2.length ? 'var(--warn)' : 'var(--ok)';
+    });
+    campo.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const todos = $$('.horas-capt', cont);
+      const sig = todos[todos.indexOf(campo)+1];
+      campo.blur();
+      if (sig) setTimeout(() => { sig.focus(); sig.select(); }, 60);
+    });
+  });
+}
+
+/* ==========================================================================
+   4 · Sugerencia
+   ========================================================================== */
+
+const kAsig = (f,t) => `${f}|${t}`;
+
+/** Turnos ya asignados a una persona en un día. */
+function turnosDe(sig, fecha) {
+  return TRONCALES.filter(t => (estado.asignados[kAsig(fecha,t)] || []).includes(sig));
+}
+
+/**
+ * Qué pasaría si a esta persona se le diera ese turno ese día.
+ *
+ * Sin el horario base sólo se ve lo que este sistema tiene asignado, pero eso
+ * alcanza para las dos señales que importan: juntar dos turnos el mismo día
+ * (C+K son 14 horas corridas) y encadenar tres jornadas dobles seguidas.
+ */
+function revisar(sig, fecha, turno) {
+  const hoy = new Set(turnosDe(sig, fecha));
+  if (hoy.has(turno)) return { alerta: 'Ya tiene ese turno asignado ese día', grave: true };
+  hoy.add(turno);
+
+  const esDoble = (f, extra) => {
+    const n = new Set(turnosDe(sig, f));
+    if (extra) n.add(extra);
+    return n.size >= 2;
+  };
+
+  if (!esDoble(fecha, turno)) return { alerta: null, grave: false };
+
+  let corrida = 1;
+  for (let f = masDias(fecha,-1); esDoble(f); f = masDias(f,-1)) corrida++;
+  for (let f = masDias(fecha, 1); esDoble(f); f = masDias(f, 1)) corrida++;
+
+  if (corrida > MAX_DIAS_SEGUIDOS) {
+    return { alerta: `Serían ${corrida} jornadas dobles seguidas`, grave: true };
+  }
+  const juntos = [...hoy].sort().join('+');
+  return { alerta: `Juntaría ${juntos} el mismo día (jornada doble)`, grave: false };
+}
+
+function pintarSugerencias() {
+  const dias = ventana();
+  const porPersona = peticionesEnVentana();
+  const soloPend = $('#a-pendientes').checked;
+
+  const lugares = [];
+  for (const d of dias) for (const g of ORDEN) for (const t of TRONCALES) {
+    const cupos = estado.cupos[kCupo(d.f,g,t)] || 0;
+    if (!cupos) continue;
+    const ya = estado.asignados[kAsig(d.f,t)] || [];
+    // En la ronda 1 sólo la propia categoría; después van entrando las de
+    // arriba, que sí pueden cubrir el puesto.
+    const admitidos = alcance(g, estado.ronda);
+    const candidatos = Object.keys(porPersona)
+      .filter(sig => admitidos.includes(persona(sig).c)
+                  && porPersona[sig].some(q => q.f === d.f && q.t === t))
+      .map(sig => ({
+        sig,
+        nombre: persona(sig).n,
+        categoria: persona(sig).c,
+        deOtra: persona(sig).c !== g,
+        horas: estado.horas[sig] ?? null,
+        asignado: ya.includes(sig),
+        ...(ya.includes(sig) ? { alerta:null, grave:false } : revisar(sig, d.f, t)),
+      }))
+      // Menos horas primero. Quien no tenga horas va al final: no hay con qué comparar.
+      .sort((a,b) => (a.horas === null) - (b.horas === null)
+                  || (a.horas ?? 0) - (b.horas ?? 0)
+                  || a.sig.localeCompare(b.sig));
+    lugares.push({ ...d, g, t, cupos, ya, libres: Math.max(0, cupos - ya.length),
+                   candidatos, admitidos });
+  }
+
+  const totalLugares = lugares.reduce((s,l) => s + l.cupos, 0);
+  const totalAsig = lugares.reduce((s,l) => s + l.ya.length, 0);
+  $('#a-conteo').textContent =
+    `Ronda ${estado.ronda} · ${totalAsig} de ${totalLugares} lugar(es) asignado(s)`;
+
+  const visibles = soloPend ? lugares.filter(l => l.libres > 0) : lugares;
+  const cont = $('#a-lista');
+  if (!visibles.length) {
+    cont.innerHTML = `<p class="hueco">${soloPend
+      ? 'Todos los lugares están cubiertos.'
+      : 'No hay lugares publicados. Vuelve al paso 1.'}</p>`;
+    pintarMensajesAsignacion();
+    return;
+  }
+
+  cont.innerHTML = visibles.map(l => {
+    const clase = !l.candidatos.length ? 'nadie' : (l.libres > 0 ? 'pendiente' : 'completo');
+    const estado_ = !l.candidatos.length ? 'Nadie lo pidió'
+      : l.libres > 0 ? `Faltan ${l.libres} de ${l.cupos}` : `Cubierto (${l.cupos})`;
+
+    const lista = l.candidatos.length ? `<ol>${l.candidatos.map((c,i) => `
+      <li class="${c.asignado ? 'ya' : (i === 0 && l.libres > 0 ? 'sugerido' : '')} ${c.grave ? 'grave' : ''}">
+        <span class="puesto">${c.asignado ? '✓' : i+1}</span>
+        <span class="quien">${esc(c.sig)}
+          ${c.deOtra ? `<span class="otra-cat">${TITULO[c.categoria]}</span>` : ''}
+          <small>${esc(nombreCorto(c.nombre))}</small>
+          ${c.alerta ? `<em>${esc(c.alerta)}</em>` : ''}</span>
+        <span class="horas ${c.horas === null ? 'falta' : ''}">
+          ${c.horas === null ? 'sin horas' : c.horas.toFixed(1)}
+          ${c.horas === null ? '' : '<small>trabajadas</small>'}</span>
+        <button class="btn mini ${c.asignado ? '' : (c.grave ? 'riesgo' : 'fuerte')}"
+                data-dar="${esc(c.sig)}" data-f="${l.f}" data-t="${l.t}"
+                data-grave="${c.grave ? '1' : ''}" data-alerta="${esc(c.alerta || '')}"
+                ${c.asignado ? 'disabled' : ''}>
+          ${c.asignado ? 'Asignado' : (c.grave ? 'Forzar' : 'Asignar')}</button>
+      </li>`).join('')}</ol>` : '<p class="sin-nadie">Nadie pidió este lugar.</p>';
+
+    return `<div class="lugar ${clase}">
+      <header>
+        <span class="cuando">${l.d} ${l.t} <small>${l.largo}</small></span>
+        <span class="grupo-eti">${esc(GRUPOS[l.g])}</span>
+        ${l.admitidos.length > 1
+          ? `<span class="abierto-a">abierto a ${l.admitidos.map(x => TITULO[x]).join(' + ')}</span>`
+          : ''}
+        <span class="estado">${estado_}</span>
+      </header>${lista}</div>`;
+  }).join('');
+
+  $$('[data-dar]', cont).forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.grave && !confirm(`${b.dataset.alerta}.\n\n¿Asignarlo de todos modos?`)) return;
+    const k = kAsig(b.dataset.f, b.dataset.t);
+    const lista = estado.asignados[k] = estado.asignados[k] || [];
+    if (!lista.includes(b.dataset.dar)) lista.push(b.dataset.dar);
+    guardar();
+    avisar(b.dataset.alerta
+      ? `${b.dataset.dar} asignado. ${b.dataset.alerta}.`
+      : `${b.dataset.dar} asignado el ${Number(b.dataset.f.slice(8))} en ${b.dataset.t}`,
+      b.dataset.alerta ? 'ojo' : 'ok', b.dataset.alerta ? 6500 : 3500);
+    pintarSugerencias();
+  }));
+
+  pintarMensajesAsignacion();
+}
+
+function pintarMensajesAsignacion() {
+  const fechas = new Set(ventana().map(d => d.f));
+  const porGrupo = {};
+  for (const [k, lista] of Object.entries(estado.asignados)) {
+    const [f, t] = k.split('|');
+    if (!fechas.has(f)) continue;
+    for (const sig of lista) {
+      const p = persona(sig);
+      if (!p) continue;
+      ((porGrupo[p.c] = porGrupo[p.c] || {})[`${f}|${t}`] ||= []).push(sig);
+    }
+  }
+
+  const cajas = [];
+  for (const g of ORDEN) {
+    const grupos = porGrupo[g];
+    if (!grupos) continue;
+    const lineas = ['Asignación de tx:'];
+    let cuantos = 0;
+    for (const k of Object.keys(grupos).sort()) {
+      const [f, t] = k.split('|');
+      const gente = grupos[k].sort();
+      cuantos += gente.length;
+      const quienes = gente.length === 1 ? gente[0]
+        : gente.slice(0,-1).join(', ') + ' y ' + gente.at(-1);
+      lineas.push(`${quienes} ${Number(f.slice(8))}${t}`);
+    }
+    lineas.push('Pls ack');
+    cajas.push({ g, mensaje: lineas.join('\n'), lugares: cuantos });
+  }
+  pintarCajas('#a-mensajes', cajas, 'Asigna a alguien y aquí salen los mensajes.');
+}
+
+
+/* ==========================================================================
+   5 · Resumen — qué quedó cubierto y qué sigue libre
+   ========================================================================== */
+
+/** Todos los lugares publicados con su estado de cobertura. */
+function estadoDeLugares() {
+  const salida = [];
+  for (const d of ventana()) for (const g of ORDEN) for (const t of TRONCALES) {
+    const cupos = estado.cupos[kCupo(d.f,g,t)] || 0;
+    if (!cupos) continue;
+    const gente = (estado.asignados[kAsig(d.f,t)] || [])
+      .filter(sig => persona(sig) && persona(sig).c === g);
+    salida.push({ ...d, g, t, cupos, gente, libres: Math.max(0, cupos - gente.length),
+                  admitidos: alcance(g, estado.ronda) });
+  }
+  return salida;
+}
+
+function pintarCierre() {
+  const lugares = estadoDeLugares();
+  const totalCupos = lugares.reduce((s,l) => s + l.cupos, 0);
+  const totalAsig = lugares.reduce((s,l) => s + l.gente.length, 0);
+  const libres = totalCupos - totalAsig;
+  const avance = totalCupos ? Math.round(totalAsig / totalCupos * 100) : 0;
+
+  const porGrupo = {};
+  for (const g of ORDEN) porGrupo[g] = { cupos:0, asignados:0 };
+  for (const l of lugares) {
+    porGrupo[l.g].cupos += l.cupos;
+    porGrupo[l.g].asignados += l.gente.length;
+  }
+  const desglose = ORDEN.filter(g => porGrupo[g].cupos).map(g => {
+    const x = porGrupo[g];
+    const pct = Math.round(x.asignados / x.cupos * 100);
+    return `<div class="reng"><b>${TITULO[g]}</b>
+      <span class="pista"><span style="width:${pct}%"></span></span>
+      <span class="cuenta">${x.asignados}/${x.cupos}</span></div>`;
+  }).join('');
+
+  const dias = ventana();
+  const rango = dias.length ? `del ${dias[0].d} al ${dias.at(-1).d}` : '';
+
+  $('#c-tablero').innerHTML = `
+    <div class="marcador total">
+      <div class="cifra">${totalCupos}</div>
+      <div class="etiqueta">Lugares publicados</div>
+      <div class="detalle">Ronda ${estado.ronda} · ${rango}</div>
+    </div>
+    <div class="marcador cubierto">
+      <div class="cifra">${totalAsig}</div>
+      <div class="etiqueta">Ya cubiertos</div>
+      <div class="barra-avance"><span style="width:${avance}%"></span></div>
+      <div class="detalle">${avance}% del total</div>
+    </div>
+    <div class="marcador libre ${libres ? '' : 'cero'}">
+      <div class="cifra">${libres}</div>
+      <div class="etiqueta">Siguen libres</div>
+      <div class="detalle">${libres ? 'Falta asignarlos o republicarlos'
+                                    : 'No falta nada por cubrir'}</div>
+    </div>
+    <div class="marcador">
+      <div class="etiqueta">Por grupo</div>
+      <div class="por-grupo">${desglose || '<div class="detalle">Sin lugares publicados</div>'}</div>
+    </div>`;
+
+  const pendientes = lugares.filter(l => l.libres > 0);
+  const cubiertos = lugares.filter(l => l.libres === 0);
+
+  $('#c-pendientes').innerHTML = pendientes.length
+    ? pintarDiasCierre(pendientes, false)
+    : `<p class="hueco">${totalCupos ? '✓ Todos los lugares están cubiertos.'
+                                     : 'No hay lugares publicados en este rango.'}</p>`;
+  $('#c-cubiertos').innerHTML = cubiertos.length
+    ? pintarDiasCierre(cubiertos, true)
+    : '<p class="hueco">Todavía no se ha asignado ningún lugar.</p>';
+}
+
+function pintarDiasCierre(lugares, cubierto) {
+  const porDia = {};
+  for (const l of lugares) (porDia[l.f] ||= []).push(l);
+
+  return Object.keys(porDia).sort().map(f => {
+    const delDia = porDia[f];
+    const cupos = delDia.reduce((s,l) => s + l.cupos, 0);
+    const libres = delDia.reduce((s,l) => s + l.libres, 0);
+
+    const tarjetas = delDia.map(l => {
+      const gente = l.gente.map(esc).join(', ');
+      const falta = l.libres
+        ? `<span class="falta-txt">${gente ? ' · ' : ''}faltan ${l.libres}</span>` : '';
+      const abierto = !cubierto && l.admitidos.length > 1
+        ? `<div class="abierto">abierto a ${l.admitidos.map(g => TITULO[g]).join(' + ')}</div>` : '';
+      return `<div class="lugar-chico ${cubierto ? 'ok' : 'falta'}">
+        <span class="turno-eti t-${l.t}">${l.t}</span>
+        <div class="quienes">
+          <div class="grupo">${TITULO[l.g]}</div>
+          <div class="gente">${gente || (l.libres ? '' : '—')}${falta}</div>
+          ${abierto}
+        </div></div>`;
+    }).join('');
+
+    return `<div class="dia-cierre">
+      <header>
+        <span class="fecha">${delDia[0].d}<small>${delDia[0].largo}</small></span>
+        <span class="cuenta" style="color:var(--${cubierto ? 'ok' : 'warn'})">
+          ${cubierto ? `${cupos} cubierto(s)` : `${libres} sin cubrir de ${cupos}`}</span>
+      </header>
+      <div class="tarjetas-lugar">${tarjetas}</div></div>`;
+  }).join('');
+}
+
+/* ==========================================================================
+   Respaldo: sacar y meter una copia en un archivo
+   ========================================================================== */
+
+//: El navegador guarda solo, pero esa memoria se puede ir con un «borrar datos
+//: de navegación» o al reinstalar el equipo. El archivo es lo que de veras se
+//: puede resguardar, mandar a otra computadora o restaurar cuando algo pasó.
+
+const hoyISO = () => new Date().toISOString().slice(0,10);
+
+function bajarArchivo(nombre, texto) {
+  const url = URL.createObjectURL(new Blob([texto], { type:'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function sacarRespaldo() {
+  const copia = { formato:'tx-twr', version:2, fecha:new Date().toISOString(), estado };
+  bajarArchivo(`tx-respaldo-${hoyISO()}.json`, JSON.stringify(copia, null, 1));
+  avisar('Copia guardada en tu carpeta de Descargas', 'ok', 6000);
+}
+
+/** Valida y aplica una copia. Devuelve un texto con el problema, o null. */
+function meterRespaldo(crudo) {
+  let leido;
+  try { leido = JSON.parse(crudo); }
+  catch { return 'Ese archivo no se puede leer. ¿Es el .json del respaldo?'; }
+
+  const nuevo = leido && leido.formato === 'tx-twr' ? leido.estado : leido;
+  if (!nuevo || typeof nuevo !== 'object' || !('cupos' in nuevo))
+    return 'El archivo no trae datos de tiempo extra.';
+
+  estado = { cupos:{}, peticiones:{}, horas:{}, asignados:{},
+             personal:null, clave:CLAVE_INICIAL, ronda:1, ...nuevo };
+  for (const k of ['cupos','peticiones','horas','asignados']) estado[k] = estado[k] || {};
+  if (!Array.isArray(estado.personal)) estado.personal = PERSONAL_INICIAL.map(p => ({ ...p }));
+  if (!ESCALONES[estado.ronda]) estado.ronda = 1;
+  PERSONAL = estado.personal;
+  guardar();
+  return null;
+}
+
+function modalRespaldo() {
+  const cuantos = Object.keys(estado.cupos).length + Object.keys(estado.peticiones).length
+                + Object.keys(estado.asignados).length;
+  abrirPanel(`
+    <button class="cerrar" id="re-cerrar" aria-label="Cerrar">×</button>
+    <h3>Respaldo</h3>
+    <p class="sub">Un archivo con todo lo capturado: personal, lugares,
+      solicitudes, horas y asignaciones.</p>
+
+    <p class="nota">Ahorita hay <b>${PERSONAL.length}</b> persona(s) en el catálogo
+      y <b>${cuantos}</b> registro(s) de esta asignación.
+      ${hayMemoria ? 'El navegador está guardando solo, pero esa memoria se borra si '
+        + 'alguien limpia los datos de navegación o se reinstala el equipo.'
+        : 'Este navegador <b>no está guardando</b>: el archivo es tu única copia.'}</p>
+
+    <div class="acciones" style="justify-content:flex-start; margin-bottom:14px">
+      <button class="btn fuerte" id="re-bajar">Guardar copia en un archivo</button>
+    </div>
+
+    <h3 style="font-size:15px; margin-bottom:4px">Recuperar</h3>
+    <p class="nota">Abrir una copia <b>reemplaza todo</b> lo que hay ahorita.
+      Si tienes dudas, saca primero una copia de lo actual.</p>
+    <div class="acciones" style="justify-content:flex-start">
+      <input type="file" id="re-archivo" accept=".json,application/json" hidden>
+      <button class="btn" id="re-subir">Abrir una copia…</button>
+    </div>`);
+
+  $('#re-cerrar').addEventListener('click', cerrarPanel);
+  $('#re-bajar').addEventListener('click', sacarRespaldo);
+  $('#re-subir').addEventListener('click', () => $('#re-archivo').click());
+
+  $('#re-archivo').addEventListener('change', async (e) => {
+    const archivo = e.target.files[0];
+    if (!archivo) return;
+    if (!confirm('Esto reemplaza todo lo capturado ahorita. ¿Seguir?')) {
+      e.target.value = '';
+      return;
+    }
+    const problema = meterRespaldo(await archivo.text());
+    e.target.value = '';
+    if (problema) { avisar(problema, 'mal', 8000); return; }
+    cerrarPanel();
+    pintarVentana();
+    refrescarSiglas();
+    pintarMatriz();
+    pintarMensajesPublicacion();
+    irA('publicar');
+    avisar('Copia recuperada. Revisa que esté todo antes de seguir.', 'ok', 7000);
+  });
+}
+
+
+/* ==========================================================================
+   Personal, bajo llave
+   ========================================================================== */
+
+let desbloqueado = false;
+
+function pintarCandado() {
+  $('#pe-estado').innerHTML = desbloqueado
+    ? '<span class="candado-abierto">✓ Desbloqueado. Ya puedes modificar el personal.</span>'
+    : '<span class="candado-cerrado">Bajo llave. Sólo se puede consultar.</span>';
+  $('#pe-desbloquear').textContent = desbloqueado ? 'Bloquear' : 'Desbloquear';
+  $('#pe-clave').disabled = desbloqueado;
+  $('#pe-nueva').disabled = !desbloqueado;
+  $('#pe-cambiar').disabled = !desbloqueado;
+  $$('[data-editar]').forEach(b => { b.disabled = !desbloqueado; });
+}
+
+function modalCambiarClave() {
+  abrirPanel(`
+    <button class="cerrar" id="cc-cerrar" aria-label="Cerrar">×</button>
+    <h3>Cambiar la clave</h3>
+    <p class="sub">La que abre el catálogo de personal.</p>
+    <label class="campo"><span class="rotulo">Clave nueva</span>
+      <input type="password" id="cc-uno" inputmode="numeric" maxlength="16"></label>
+    <label class="campo" style="margin-bottom:12px"><span class="rotulo">Repítela</span>
+      <input type="password" id="cc-dos" inputmode="numeric" maxlength="16"></label>
+    <p class="nota">Apúntala en algún lado. Si se te olvida, la única salida es
+      abrir un respaldo o empezar el catálogo de cero.</p>
+    <div class="acciones">
+      <button class="btn" id="cc-cancelar">Cancelar</button>
+      <button class="btn fuerte" id="cc-guardar">Guardar</button>
+    </div>`);
+
+  $('#cc-cerrar').addEventListener('click', cerrarPanel);
+  $('#cc-cancelar').addEventListener('click', cerrarPanel);
+  $('#cc-guardar').addEventListener('click', () => {
+    const uno = $('#cc-uno').value.trim();
+    const dos = $('#cc-dos').value.trim();
+    if (uno.length < 4)  { avisar('Que tenga al menos 4 caracteres', 'ojo'); return; }
+    if (uno !== dos)     { avisar('Las dos no coinciden', 'mal'); $('#cc-dos').select(); return; }
+    estado.clave = uno;
+    guardar();
+    cerrarPanel();
+    avisar('Clave cambiada');
+  });
+  setTimeout(() => $('#cc-uno').focus(), 80);
+}
+
+function alternarCandado() {
+  if (desbloqueado) {
+    desbloqueado = false;
+    $('#pe-clave').value = '';
+    pintarCandado();
+    avisar('Catálogo bloqueado de nuevo');
+    return;
+  }
+  if ($('#pe-clave').value.trim() !== estado.clave) {
+    avisar('Clave incorrecta', 'mal');
+    $('#pe-clave').select();
+    return;
+  }
+  desbloqueado = true;
+  $('#pe-clave').value = '';
+  pintarCandado();
+  avisar('Desbloqueado');
+}
+
+function pintarPersonal() {
+  const busca = $('#pe-buscar').value.trim().toLowerCase();
+  const lista = PERSONAL.filter(p => !busca
+    || p.i.toLowerCase().includes(busca) || p.n.toLowerCase().includes(busca));
+
+  $('#pe-conteo').textContent = `${lista.length} de ${PERSONAL.length} persona(s)`;
+
+  let catPrevia = null;
+  const filas = lista.slice().sort((a,b) =>
+      ORDEN.indexOf(a.c) - ORDEN.indexOf(b.c) || a.i.localeCompare(b.i))
+    .map(p => {
+      const enc = p.c !== catPrevia ? `<tr class="grupo"><td colspan="4">${TITULO[p.c]}</td></tr>` : '';
+      catPrevia = p.c;
+      return enc + `<tr>
+        <td><span class="chip">${esc(p.i)}</span></td>
+        <td>${esc(p.n)}</td>
+        <td>${TITULO[p.c]}</td>
+        <td style="text-align:right">
+          <button class="btn mini" data-editar="${esc(p.i)}" ${desbloqueado ? '' : 'disabled'}>
+            Editar</button></td>
+      </tr>`;
+    }).join('');
+
+  $('#pe-tabla').innerHTML = `<div class="marco-tabla"><table class="tabla">
+    <thead><tr><th>Siglas</th><th>Nombre</th><th>Categoría</th><th></th></tr></thead>
+    <tbody>${filas}</tbody></table></div>`;
+
+  $$('[data-editar]').forEach(b => b.addEventListener('click', () => modalPersona(b.dataset.editar)));
+  pintarCandado();
+}
+
+function modalPersona(siglas) {
+  const p = siglas ? persona(siglas) : null;
+  $('#panel').innerHTML = `
+    <button class="cerrar" id="mp-cerrar" aria-label="Cerrar">×</button>
+    <h3>${p ? 'Editar' : 'Agregar'} persona</h3>
+    <p class="sub">Las siglas son la clave con que aparece en los mensajes del grupo.</p>
+    <div class="dos-campos">
+      <label class="campo"><span class="rotulo">Siglas</span>
+        <input type="text" id="mp-siglas" maxlength="3" value="${esc(p ? p.i : '')}"
+               ${p ? 'readonly' : ''} class="siglas-grande" style="width:100%"></label>
+      <label class="campo"><span class="rotulo">Categoría</span>
+        <select id="mp-cat">${ORDEN.map(g =>
+          `<option value="${g}"${p && p.c === g ? ' selected' : ''}>${TITULO[g]}</option>`).join('')}
+        </select></label>
+    </div>
+    <label class="campo" style="margin-bottom:12px"><span class="rotulo">Nombre completo</span>
+      <input type="text" id="mp-nombre" value="${esc(p ? p.n : '')}"></label>
+    <div class="acciones">
+      ${p ? '<button class="btn riesgo" id="mp-baja">Dar de baja</button>' : ''}
+      <button class="btn" id="mp-cancelar">Cancelar</button>
+      <button class="btn fuerte" id="mp-guardar">Guardar</button>
+    </div>`;
+  $('#panel').hidden = false;
+  $('#velo').hidden = false;
+
+  const cerrar = () => { $('#panel').hidden = true; $('#velo').hidden = true; };
+  $('#mp-cerrar').addEventListener('click', cerrar);
+  $('#mp-cancelar').addEventListener('click', cerrar);
+
+  $('#mp-guardar').addEventListener('click', () => {
+    const sig = $('#mp-siglas').value.trim().toUpperCase();
+    const nombre = $('#mp-nombre').value.trim() || sig;
+    const cat = $('#mp-cat').value;
+    if (!sig) { avisar('Las siglas son obligatorias', 'ojo'); return; }
+    if (!p && persona(sig)) { avisar(`Ya existe alguien con las siglas ${sig}`, 'mal'); return; }
+    if (p) { p.n = nombre; p.c = cat; }
+    else PERSONAL.push({ i: sig, n: nombre, c: cat });
+    guardar();
+    avisar(p ? `${sig} actualizado` : `${sig} dado de alta`);
+    cerrar();
+    pintarPersonal();
+    refrescarSiglas();
+  });
+
+  const baja = $('#mp-baja');
+  if (baja) baja.addEventListener('click', () => {
+    if (!confirm(`¿Dar de baja a ${p.i}? Dejará de aparecer en las listas.`)) return;
+    PERSONAL.splice(PERSONAL.indexOf(p), 1);
+    guardar();
+    avisar(`${p.i} dado de baja`);
+    cerrar();
+    pintarPersonal();
+    refrescarSiglas();
+  });
+}
+
+
+/* ==========================================================================
+   Limpieza para una asignación nueva
+   ========================================================================== */
+
+//: Qué borra cada casilla y qué se conserva por omisión.
+const LIMPIABLE = [
+  { clave:'cupos',      etiqueta:'Lugares publicados',    porDefecto:true  },
+  { clave:'peticiones', etiqueta:'Solicitudes capturadas', porDefecto:true  },
+  { clave:'asignados',  etiqueta:'Asignaciones hechas',    porDefecto:true  },
+  { clave:'horas',      etiqueta:'Horas capturadas',       porDefecto:true  },
+  { clave:'personal',   etiqueta:'Catálogo de personal',   porDefecto:false, cimiento:true },
+];
+
+const cuantosHay = (clave) => clave === 'personal'
+  ? PERSONAL.length
+  : Object.keys(estado[clave] || {}).length;
+
+function modalLimpiar() {
+  const filas = LIMPIABLE.map(g => `
+    <label class="grupo-limpiar ${g.porDefecto ? 'se-borra' : ''} ${cuantosHay(g.clave) ? '' : 'vacio-ya'}">
+      <input type="checkbox" data-grupo="${g.clave}" ${g.porDefecto ? 'checked' : ''}>
+      <span class="nombre">${g.etiqueta}
+        ${g.cimiento ? '<span class="conserva">se conserva</span>' : ''}</span>
+      <span class="cuantos">${cuantosHay(g.clave)} registro(s)</span>
+    </label>`).join('');
+
+  $('#panel').innerHTML = `
+    <button class="cerrar" id="lim-cerrar" aria-label="Cerrar">×</button>
+    <h3>Empezar una asignación nueva</h3>
+    <p class="sub">Vacía lo de la semana pasada para arrancar de cero.
+      Lo marcado se borra; lo demás se queda.</p>
+
+    <div class="grupos-limpiar">${filas}</div>
+
+    <p class="nota">
+      El <b>catálogo de personal</b> no se toca: es el cimiento, no el ciclo.
+      Las horas sí se limpian porque las vuelves a tomar del conteo cada semana,
+      y una cifra vieja ordenaría mal la sugerencia sin que te dieras cuenta.
+    </p>
+
+    <label class="check" style="margin-bottom:8px">
+      <input type="checkbox" id="lim-ronda" checked> Volver a la ronda 1</label>
+    <label class="check" style="margin-bottom:8px">
+      <input type="checkbox" id="lim-copia" checked> Guardar una copia antes de limpiar</label>
+
+    <div class="confirmar-limpiar">
+      <label for="lim-palabra">Escribe LIMPIAR para confirmar</label>
+      <input type="text" id="lim-palabra" maxlength="10" autocomplete="off" placeholder="LIMPIAR">
+    </div>
+
+    <div class="acciones">
+      <button class="btn" id="lim-cancelar">Cancelar</button>
+      <button class="btn riesgo" id="lim-hacer" disabled>Limpiar</button>
+    </div>`;
+  $('#panel').hidden = false;
+  $('#velo').hidden = false;
+
+  const cerrar = () => { $('#panel').hidden = true; $('#velo').hidden = true; };
+  const palabra = $('#lim-palabra');
+  const hacer = $('#lim-hacer');
+
+  const revisar = () => {
+    const marcados = $$('[data-grupo]').filter(c => c.checked);
+    hacer.disabled = !marcados.length || palabra.value.trim().toUpperCase() !== 'LIMPIAR';
+    hacer.textContent = marcados.length ? `Limpiar ${marcados.length} grupo(s)` : 'Nada marcado';
+  };
+
+  $$('[data-grupo]').forEach(c => c.addEventListener('change', () => {
+    c.closest('label').classList.toggle('se-borra', c.checked);
+    revisar();
+  }));
+  palabra.addEventListener('input', revisar);
+  palabra.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !hacer.disabled) hacer.click();
+  });
+  revisar();
+  setTimeout(() => palabra.focus(), 80);
+
+  $('#lim-cerrar').addEventListener('click', cerrar);
+  $('#lim-cancelar').addEventListener('click', cerrar);
+
+  hacer.addEventListener('click', () => {
+    const grupos = $$('[data-grupo]').filter(c => c.checked).map(c => c.dataset.grupo);
+    if (grupos.includes('personal') && !confirm(
+      'Vas a borrar el catálogo de personal completo. ¿Seguro?')) return;
+
+    //: Antes de borrar, no después: si algo se limpió de más, el archivo es
+    //: la única forma de traerlo de vuelta.
+    if ($('#lim-copia').checked) sacarRespaldo();
+
+    let total = 0;
+    for (const g of grupos) {
+      total += cuantosHay(g);
+      if (g === 'personal') PERSONAL.length = 0;
+      else estado[g] = {};
+    }
+    if ($('#lim-ronda').checked) estado.ronda = 1;
+    guardar();
+
+    cerrar();
+    avisar(`Listo: ${total} registro(s) borrado(s). Ya puedes empezar de nuevo.`, 'ok', 7000);
+    refrescarSiglas();
+    pintarMatriz();
+    pintarMensajesPublicacion();
+    irA('publicar');
+  });
+}
+
+/* ==========================================================================
+   Arranque
+   ========================================================================== */
+
+function irA(vista) {
+  $$('.paso-tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.vista === vista)));
+  $$('.vista').forEach(v => { v.hidden = v.id !== `v-${vista}`; });
+  if (vista === 'publicar')    { pintarMatriz(); pintarMensajesPublicacion(); }
+  if (vista === 'solicitudes') { pintarSolicitudes(); $('#s-siglas').focus(); }
+  if (vista === 'horas')       pintarHoras();
+  if (vista === 'asignar')     pintarSugerencias();
+  if (vista === 'cierre')      pintarCierre();
+  if (vista === 'personal')    pintarPersonal();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function tema(v) {
+  document.documentElement.dataset.theme = v;
+  try { localStorage.setItem('tx-tema', v); } catch { /* sin persistencia */ }
+}
+
+function ejemplo() {
+  if (Object.keys(estado.cupos).length || Object.keys(estado.peticiones).length) {
+    if (!confirm('El ejemplo reemplaza lo que ya tienes capturado. ¿Seguir?')) return;
+  }
+  //: Los días van por posición dentro de la ventana que esté en pantalla, no
+  //: por fecha fija, para que el ejemplo caiga siempre en la semana a la vista.
+  const dias = ventana();
+  const f = (i) => dias[Math.min(i, dias.length - 1)].f;
+
+  estado.cupos = {};
+  for (const [i, grupo, turno, n] of [
+    [2,'SUPERVISOR','C',1], [2,'SUPERVISOR','K',2], [4,'SUPERVISOR','C',1], [5,'SUPERVISOR','K',1],
+    [2,'ATCO','C',2], [3,'ATCO','K',3], [5,'ATCO','C',1], [5,'ATCO','K',1], [5,'ATCO','O',1],
+    [4,'AUX','K',1], [6,'AUX','C',4],
+  ]) estado.cupos[`${f(i)}|${grupo}|${turno}`] = n;
+
+  estado.peticiones = {};
+  for (const [sig, pedidos] of Object.entries({
+    GH:[[2,'C'],[4,'C'],[5,'K']], KB:[[2,'C'],[2,'K']], VS:[[2,'K'],[5,'K']],
+    MR:[[4,'C']], CT:[[2,'C'],[3,'K']], ZL:[[2,'C'],[5,'C']], HZ:[[3,'K'],[5,'K']],
+    IA:[[3,'K'],[5,'O']], EG:[[4,'K'],[6,'C']], ZA:[[6,'C']],
+  })) for (const [i, t] of pedidos) estado.peticiones[`${sig}|${f(i)}|${t}`] = true;
+
+  estado.horas = { GH:310, KB:145, VS:180, MR:220, CT:304, ZL:316, HZ:188, IA:185, EG:202, ZA:149 };
+  estado.asignados = {};
+  guardar();
+  pintarMatriz(); pintarMensajesPublicacion();
+  avisar('Cargué un ejemplo completo. Recorre los cuatro pasos con los botones «Siguiente».', 'ok', 8000);
+}
+
+function pintarVentana() {
+  $('#p-desde').value = estado.desde || hoyLocal();
+  if ([...$('#p-dias').options].some(o => o.value === String(estado.dias)))
+    $('#p-dias').value = String(estado.dias);
+}
+
+function iniciar() {
+  cargar();
+  pintarVentana();
+  let guardadoTema = null;
+  try { guardadoTema = localStorage.getItem('tx-tema'); } catch { /* sin persistencia */ }
+  tema(guardadoTema || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+
+  refrescarSiglas();
+
+  pintarMatriz();
+  pintarMensajesPublicacion();
+
+  $$('.paso-tab').forEach(b => b.addEventListener('click', () => irA(b.dataset.vista)));
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-ir]');
+    if (b) irA(b.dataset.ir);
+  });
+
+  $('#p-desde').addEventListener('change', () => {
+    estado.desde = $('#p-desde').value; guardar();
+    pintarMatriz(); pintarMensajesPublicacion();
+  });
+  $('#p-dias').addEventListener('change', () => {
+    estado.dias = Number($('#p-dias').value); guardar();
+    pintarMatriz(); pintarMensajesPublicacion();
+  });
+  $('#p-dow').addEventListener('change', pintarMensajesPublicacion);
+  $('#p-ejemplo').addEventListener('click', ejemplo);
+  $('#p-vaciar').addEventListener('click', () => {
+    const fechas = new Set(ventana().map(d => d.f));
+    let n = 0;
+    for (const k of Object.keys(estado.cupos)) if (fechas.has(k.split('|')[0])) { delete estado.cupos[k]; n++; }
+    guardar(); pintarMatriz(); pintarMensajesPublicacion();
+    avisar(`${n} registro(s) borrado(s)`);
+  });
+
+  $('#s-siglas').addEventListener('input', mostrarQuienEs);
+  $('#s-siglas').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); $('#s-texto').focus(); }
+  });
+  $('#s-texto').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); agregarSolicitud(); }
+  });
+  $('#s-agregar').addEventListener('click', agregarSolicitud);
+
+  $('#a-pendientes').addEventListener('change', pintarSugerencias);
+
+  $$('.ronda-btn').forEach(b => b.addEventListener('click', () => {
+    estado.ronda = Number(b.dataset.ronda);
+    guardar();
+    pintarMensajesPublicacion();
+    if (!$('#v-asignar').hidden) pintarSugerencias();
+    if (!$('#v-cierre').hidden) pintarCierre();
+    avisar(EXPLICA_RONDA[estado.ronda], 'ok', 6000);
+  }));
+
+  $('#pe-desbloquear').addEventListener('click', alternarCandado);
+  $('#pe-clave').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); alternarCandado(); }
+  });
+  $('#pe-nueva').addEventListener('click', () => modalPersona(null));
+  $('#pe-buscar').addEventListener('input', pintarPersonal);
+  $('#velo').addEventListener('click', () => { $('#panel').hidden = true; $('#velo').hidden = true; });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { $('#panel').hidden = true; $('#velo').hidden = true; }
+  });
+
+  $('#pe-cambiar').addEventListener('click', modalCambiarClave);
+  $('#respaldo').addEventListener('click', modalRespaldo);
+
+  $('#tema').addEventListener('click', () =>
+    tema(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+  $('#limpiar-todo').addEventListener('click', modalLimpiar);
+}
+
+iniciar();
+</script>
+</body>
+</html>

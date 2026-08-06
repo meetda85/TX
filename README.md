@@ -3,12 +3,31 @@
 Sistema **local** para publicar tiempo extra, anotar quién lo pidió y decidir a
 quién asignárselo, repartiendo parejo entre quienes menos horas llevan.
 
-Corre en tu propia computadora. No manda nada a internet, no necesita cuenta
-ni servidor: los datos viven en un archivo dentro de la carpeta `datos/`.
+Corre en tu propia computadora. No manda nada a internet y no necesita cuenta
+ni servidor.
 
 ---
 
 ## Cómo abrirlo
+
+Hay dos versiones. Hacen lo mismo; cambia dónde guardan.
+
+### Un solo archivo — sin instalar nada
+
+Doble clic en **[`Tiempo Extra.html`](Tiempo%20Extra.html)** y listo. Se abre en
+Chrome o Edge y ya está funcionando: no hace falta Python, ni permisos de
+administrador, ni internet.
+
+Lo capturado se guarda solo en la memoria del navegador de esa computadora, así
+que **saca una copia con el botón «Respaldo»** al terminar cada asignación: baja
+un archivo `.json` con todo, que sirve para resguardar o para pasarlo a otra
+máquina. Esa memoria se borra si alguien limpia los datos de navegación, y el
+archivo es lo único que la sobrevive.
+
+### El programa completo — con Python
+
+Guarda en una base de datos en tu disco, saca respaldos solo y puede importar el
+Excel de conteo. Vale la pena si vas a manejar mucho histórico.
 
 **Windows** — doble clic en `iniciar.bat`.
 **Mac o Linux** — doble clic en `iniciar.sh`, o desde la terminal:
@@ -26,9 +45,9 @@ la casilla *«Add Python to PATH»*). No se instala ninguna otra librería: el
 programa usa exclusivamente lo que Python trae de fábrica, para que funcione
 en máquinas con permisos restringidos y sin internet.
 
-Si es la primera vez, el paso a paso completo —incluido qué hacer cuando algo
-falla— está en **[`COMO_INSTALAR.txt`](COMO_INSTALAR.txt)**, en texto plano
-para abrirlo con doble clic en el Bloc de notas.
+El paso a paso de las dos versiones —incluido qué hacer cuando algo falla— está
+en **[`COMO_INSTALAR.txt`](COMO_INSTALAR.txt)**, en texto plano para abrirlo con
+doble clic en el Bloc de notas.
 
 ---
 
@@ -362,6 +381,8 @@ tx/
   acceso.py     Candado del catálogo de personal (PBKDF2 con sal)
   semilla.py    Horario de agosto 2026 de S-TWR para arrancar
   web/          Interfaz (HTML, CSS y JavaScript sin frameworks)
+Tiempo Extra.html   La versión de un solo archivo: misma interfaz y mismas
+                    reglas, en JavaScript, guardando en el navegador
 datos/          Base de datos local (no se versiona)
 pruebas/        231 pruebas automatizadas
 ```
@@ -378,5 +399,13 @@ conteo en sus dos formatos, y la API completa.
 
 ## Respaldos
 
-Todo vive en `datos/tx.db`. Para respaldar, copia ese archivo. Para restaurar,
-devuélvelo a su lugar con el programa cerrado.
+**Con Python** todo vive en `datos/tx.db`. Para respaldar, copia ese archivo;
+para restaurar, devuélvelo a su lugar con el programa cerrado. El botón de
+limpieza saca su propia copia en `datos/respaldos/` antes de borrar nada.
+
+**En la versión de un solo archivo** los datos están en la memoria del navegador,
+que no es un lugar del que se pueda copiar a mano. Ahí el respaldo es el botón
+**Respaldo → Guardar copia en un archivo**: baja un `.json` con el catálogo de
+personal, los lugares, las solicitudes, las horas y las asignaciones. Recuperarlo
+reemplaza todo lo que haya en ese momento. Al limpiar para empezar la semana
+saca esa copia sola, salvo que lo desmarques.
