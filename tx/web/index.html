@@ -28,6 +28,12 @@
   </nav>
 
   <div class="acciones-barra">
+    <div class="selector-ronda" id="selector-ronda" role="group" aria-label="Ronda de publicación">
+      <span class="rotulo-ronda">Ronda</span>
+      <button class="ronda-btn" data-ronda="1">1</button>
+      <button class="ronda-btn" data-ronda="2">2</button>
+      <button class="ronda-btn" data-ronda="3">3</button>
+    </div>
     <button class="icono" id="btn-tema" title="Cambiar tema">◐</button>
     <button class="icono" id="btn-ajustes" title="Ajustes">⚙</button>
   </div>
@@ -67,9 +73,10 @@
 
   <div class="tarjeta">
     <h2>2 · Mensajes para los grupos</h2>
+    <p class="nota" id="pub-explica-ronda"></p>
     <p class="nota">
-      Un mensaje por grupo, con sólo lo que a cada quien le toca. Copia y pega
-      tal cual en WhatsApp.
+      Se publica siempre <b>lo que falta por cubrir</b>: lo que ya se asignó no
+      se vuelve a ofrecer.
     </p>
     <div class="fila-controles">
       <label class="check"><input type="checkbox" id="pub-dia-semana"> Incluir el día de la semana</label>

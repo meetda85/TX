@@ -731,24 +731,55 @@ function recalcularTotales() {
     : 'Todavía no hay lugares capturados';
 }
 
+//: Qué hace cada ronda, en una línea, para mostrarlo en pantalla.
+const EXPLICA_RONDA = {
+  1: 'Ronda 1 · cada grupo ve sólo lo de su categoría.',
+  2: 'Ronda 2 · lo que sobró de auxiliares sube también al grupo de torre.',
+  3: 'Ronda 3 · lo sobrante sube todo lo que puede: lo de auxiliares llega hasta '
+   + 'supervisores y lo de torre hasta supervisores. Lo de supervisor nunca baja.',
+};
+
+function pintarSelectorRonda() {
+  const ronda = estado.ronda || 1;
+  $$('.ronda-btn').forEach(b => b.classList.toggle('activa', Number(b.dataset.ronda) === ronda));
+  const nota = $('#pub-explica-ronda');
+  if (nota) nota.textContent = EXPLICA_RONDA[ronda];
+}
+
+async function cambiarRonda(ronda) {
+  try {
+    await enviar('/api/ajustes', { ronda });
+    estado.ronda = ronda;
+    pintarSelectorRonda();
+    avisar(EXPLICA_RONDA[ronda], 'ok', 6000);
+    await cargarMensajesGrupo();
+    if ($('#vista-sugerencia').classList.contains('activa')) await cargarSugerencias();
+  } catch (err) { fallar(err); }
+}
+
 async function cargarMensajesGrupo() {
-  const desde = $('#pub-desde').value || hoyISO();
-  const dias = Number($('#pub-dias').value);
-  const hasta = new Date(new Date(desde + 'T12:00:00').getTime() + (dias - 1) * 864e5)
-    .toISOString().slice(0, 10);
+  const { desde, hasta } = ventanaTrabajo();
   try {
     const datos = await obtener('/api/publicaciones', {
       desde, hasta, dia_semana: $('#pub-dia-semana').checked ? 1 : 0,
     });
+    estado.ronda = datos.ronda;
+    pintarSelectorRonda();
+
     const cont = $('#pub-mensajes');
     if (!datos.mensajes.length) {
-      cont.innerHTML = '<p class="vacio">Captura lugares arriba y aquí aparecen los mensajes.</p>';
+      cont.innerHTML = '<p class="vacio">'
+        + (datos.total_lugares === 0 && estado.ronda > 1
+            ? 'Ya no queda nada por cubrir en este rango.'
+            : 'Captura lugares arriba y aquí aparecen los mensajes.')
+        + '</p>';
       return;
     }
     cont.innerHTML = datos.mensajes.map(m => `
       <div class="mensaje-caja g-${m.categoria}">
         <header>
           <b>${escapar(m.grupo)}</b>
+          ${m.de_otra ? `<span class="escalado">${m.de_otra} de otra categoría</span>` : ''}
           <span class="cuantos">${m.lugares} lugar(es)</span>
         </header>
         <pre id="msj-${m.categoria}">${escapar(m.mensaje)}</pre>
@@ -951,8 +982,10 @@ async function cargarSugerencias() {
     const datos = await obtener('/api/sugerencias', { desde, hasta, periodo });
     const soloPendientes = $('#sug-pendientes').checked;
 
+    estado.ronda = datos.ronda;
+    pintarSelectorRonda();
     $('#sug-conteo').textContent =
-      `${datos.total_asignados} de ${datos.total_lugares} lugar(es) asignado(s)`;
+      `Ronda ${datos.ronda} · ${datos.total_asignados} de ${datos.total_lugares} lugar(es) asignado(s)`;
 
     const lugares = soloPendientes ? datos.lugares.filter(l => l.libres > 0) : datos.lugares;
     const cont = $('#sug-lista');
@@ -973,6 +1006,7 @@ async function cargarSugerencias() {
         <li class="${c.asignado ? 'ya' : (i === 0 && l.libres > 0 ? 'sugerido' : '')} n-${c.nivel}">
           <span class="puesto">${c.asignado ? '✓' : i + 1}</span>
           <span class="quien">${escapar(c.iniciales)}
+            ${c.de_otra_categoria ? `<span class="otra-cat">${GRUPOS_TITULO[c.categoria]}</span>` : ''}
             <small>${escapar(nombreCorto(c.nombre))}</small>
             ${c.aviso ? `<em class="choque">${escapar(c.aviso)}</em>` : ''}</span>
           <span class="horas ${c.horas === null ? 'falta' : ''}">
@@ -986,10 +1020,15 @@ async function cargarSugerencias() {
         </li>`).join('')}</ol>`
         : '<p class="sin-nadie">Nadie pidió este lugar.</p>';
 
+      const abierto = l.abierto_a.length > 1
+        ? `<span class="abierto-a">abierto a ${l.abierto_a.map(g => GRUPOS_TITULO[g]).join(' + ')}</span>`
+        : '';
+
       return `<div class="lugar ${clase}">
         <header>
           <span class="cuando">${l.dia} ${l.turno}<small>${l.dow}</small></span>
           <span class="grupo-eti">${escapar(l.grupo)}</span>
+          ${abierto}
           <span class="estado">${estado_}</span>
         </header>
         ${lista}
@@ -1628,6 +1667,12 @@ async function iniciar() {
 
   // Asignar
   $('#btn-buscar-candidatos').addEventListener('click', buscarCandidatos);
+
+  // Ronda de publicación
+  $$('.ronda-btn').forEach(b =>
+    b.addEventListener('click', () => cambiarRonda(Number(b.dataset.ronda))));
+  estado.ronda = estado.config.ronda;
+  pintarSelectorRonda();
 
   // Publicar
   $('#pub-desde').addEventListener('change', cargarMatriz);

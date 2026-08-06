@@ -81,6 +81,12 @@ def estado(cx: sqlite3.Connection, _params: dict) -> dict:
         "categorias": list(T.CATEGORIAS),
         "ubicaciones": list(T.UBICACIONES),
         "max_dobles_consecutivas": db.max_consecutivas(cx),
+        "ronda": int(db.ajuste(cx, "ronda", "1")),
+        "rondas": list(T.RONDAS),
+        "jerarquia": list(T.JERARQUIA),
+        "alcance_por_ronda": {
+            str(r): {c: T.alcance(c, r) for c in T.CATEGORIAS} for r in T.RONDAS
+        },
         "conteos": {
             "personas": n_personas,
             "dias_horario": n_horario,
@@ -95,10 +101,17 @@ def sembrar(cx: sqlite3.Connection, cuerpo: dict) -> dict:
 
 
 def guardar_ajustes(cx: sqlite3.Connection, cuerpo: dict) -> dict:
+    if "ronda" in cuerpo:
+        ronda = _ronda(cx, {"ronda": cuerpo["ronda"]})
+        db.guardar_ajuste(cx, "ronda", str(ronda))
     for clave in ("max_dobles_consecutivas", "publicado_desde"):
         if clave in cuerpo:
             db.guardar_ajuste(cx, clave, str(cuerpo[clave]))
-    return {"ok": True, "max_dobles_consecutivas": db.max_consecutivas(cx)}
+    return {
+        "ok": True,
+        "max_dobles_consecutivas": db.max_consecutivas(cx),
+        "ronda": int(db.ajuste(cx, "ronda", "1")),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -437,6 +450,24 @@ def crear_asignacion(cx: sqlite3.Connection, cuerpo: dict) -> dict:
     origen = cuerpo.get("origen") or "ASIGNADO"
     forzar = bool(cuerpo.get("forzar"))
 
+    # Un auxiliar no puede cubrir un puesto de torre por más rondas que pasen:
+    # el tiempo extra sube de categoría, nunca baja.
+    persona = cx.execute("SELECT * FROM personas WHERE id = ?", (int(persona_id),)).fetchone()
+    if persona is None:
+        raise ErrorPeticion("No existe esa persona")
+
+    vacante = cx.execute(
+        "SELECT categoria FROM vacantes WHERE fecha=? AND turno=? AND estado='ABIERTA' "
+        "ORDER BY id LIMIT 1",
+        (fecha.isoformat(), turno),
+    ).fetchone()
+    if vacante is not None and vacante["categoria"]:
+        if not T.puede_cubrir(persona["categoria"], vacante["categoria"]):
+            raise ErrorPeticion(
+                f"{persona['iniciales']} es {persona['categoria'].lower()} y ese lugar es de "
+                f"{vacante['categoria'].lower()}. El tiempo extra sólo sube de categoría."
+            )
+
     dias = db.panorama(cx, int(persona_id), fecha, margen=5)
     evaluacion = reglas.evaluar(
         fecha,
@@ -639,35 +670,83 @@ def fijar_cupos(cx: sqlite3.Connection, cuerpo: dict) -> dict:
     return {"ok": True, "guardados": guardados}
 
 
+def _asignados_por_lugar(
+    cx: sqlite3.Connection, desde: date, hasta: date
+) -> dict[tuple[str, str], set[str]]:
+    """Quién quedó ya asignado en cada fecha y turno."""
+    salida: dict[tuple[str, str], set[str]] = {}
+    for a in cx.execute(
+        "SELECT a.fecha, a.turno, p.iniciales FROM asignaciones a "
+        "JOIN personas p ON p.id = a.persona_id WHERE a.fecha BETWEEN ? AND ?",
+        (desde.isoformat(), hasta.isoformat()),
+    ).fetchall():
+        salida.setdefault((a["fecha"], a["turno"]), set()).add(a["iniciales"])
+    return salida
+
+
+def _restantes(cx: sqlite3.Connection, desde: date, hasta: date) -> list[dict]:
+    """Los lugares que siguen sin cubrir, con lo que falta de cada uno.
+
+    Un lugar asignado ya no se republica: cada ronda reofrece únicamente el
+    sobrante de la anterior.
+    """
+    ya = _asignados_por_lugar(cx, desde, hasta)
+    pendientes = []
+    for v in cx.execute(
+        "SELECT * FROM vacantes WHERE fecha BETWEEN ? AND ? AND estado = 'ABIERTA' "
+        "ORDER BY fecha, turno",
+        (desde.isoformat(), hasta.isoformat()),
+    ).fetchall():
+        categoria = v["categoria"] or "ATCO"
+        cubiertos = len(ya.get((v["fecha"], v["turno"]), set()))
+        libres = max(0, int(v["cupos"] or 0) - cubiertos)
+        if libres:
+            pendientes.append(
+                {
+                    "fecha": v["fecha"],
+                    "turno": v["turno"],
+                    "cupos": libres,
+                    "categoria": categoria,
+                }
+            )
+    return pendientes
+
+
 def publicaciones(cx: sqlite3.Connection, params: dict) -> dict:
     """Los mensajes listos para copiar y pegar, uno por grupo de WhatsApp."""
     hoy = date.today()
     desde = _fecha(params["desde"][0], "desde") if params.get("desde") else hoy
     hasta = _fecha(params["hasta"][0], "hasta") if params.get("hasta") else desde + timedelta(days=30)
     con_dia = params.get("dia_semana", ["0"])[0] == "1"
+    ronda = _ronda(cx, params)
 
-    filas = cx.execute(
-        "SELECT * FROM vacantes WHERE fecha BETWEEN ? AND ? AND estado = 'ABIERTA' "
-        "ORDER BY fecha, turno",
-        (desde.isoformat(), hasta.isoformat()),
-    ).fetchall()
-
-    vacantes = [
-        {
-            "fecha": v["fecha"],
-            "turno": v["turno"],
-            "cupos": v["cupos"],
-            "categoria": v["categoria"] or "ATCO",
-        }
-        for v in filas
-    ]
+    pendientes = _restantes(cx, desde, hasta)
 
     return {
         "desde": desde.isoformat(),
         "hasta": hasta.isoformat(),
-        "mensajes": whatsapp.generar_publicaciones_por_grupo(vacantes, con_dia_semana=con_dia),
-        "total_lugares": sum(int(v["cupos"] or 1) for v in vacantes),
+        "ronda": ronda,
+        "mensajes": whatsapp.generar_publicaciones_por_grupo(
+            pendientes, con_dia_semana=con_dia, ronda=ronda
+        ),
+        "total_lugares": sum(int(v["cupos"]) for v in pendientes),
     }
+
+
+def _ronda(cx: sqlite3.Connection, origen: dict) -> int:
+    """La ronda que se está trabajando: la del parámetro o la guardada."""
+    crudo = origen.get("ronda")
+    if isinstance(crudo, list):
+        crudo = crudo[0] if crudo else None
+    if crudo in (None, ""):
+        crudo = db.ajuste(cx, "ronda", "1")
+    try:
+        ronda = int(crudo)
+    except (TypeError, ValueError) as exc:
+        raise ErrorPeticion(f"Ronda inválida: {crudo}") from exc
+    if ronda not in T.RONDAS:
+        raise ErrorPeticion(f"La ronda debe ser 1, 2 o 3 (llegó {ronda})")
+    return ronda
 
 
 # ---------------------------------------------------------------------------
@@ -842,18 +921,13 @@ def sugerencias(cx: sqlite3.Connection, params: dict) -> dict:
 
     manuales = db.totales(cx, periodo)
     horas_de = {pid: fila["horas"] for pid, fila in manuales.items()}
+    ronda = _ronda(cx, params)
 
     pedidos: dict[tuple[str, str], list[sqlite3.Row]] = {}
     for f in db.peticiones(cx, desde, hasta):
         pedidos.setdefault((f["fecha"], f["turno"]), []).append(f)
 
-    asignados: dict[tuple[str, str], set[str]] = {}
-    for a in cx.execute(
-        "SELECT a.fecha, a.turno, p.iniciales, p.id AS pid FROM asignaciones a "
-        "JOIN personas p ON p.id = a.persona_id WHERE a.fecha BETWEEN ? AND ?",
-        (desde.isoformat(), hasta.isoformat()),
-    ).fetchall():
-        asignados.setdefault((a["fecha"], a["turno"]), set()).add(a["iniciales"])
+    asignados = _asignados_por_lugar(cx, desde, hasta)
 
     lugares = []
     for v in db.vacantes(cx, desde):
@@ -862,10 +936,13 @@ def sugerencias(cx: sqlite3.Connection, params: dict) -> dict:
         categoria = v["categoria"] or "ATCO"
         llave = (v["fecha"], v["turno"])
         ya = asignados.get(llave, set())
+        grupos_admitidos = T.alcance(categoria, ronda)
 
         candidatos = []
         for f in pedidos.get(llave, []):
-            if f["categoria"] != categoria:
+            # En la ronda 1 sólo la propia categoría; después van entrando las
+            # de arriba, que sí pueden cubrir el puesto.
+            if f["categoria"] not in grupos_admitidos:
                 continue
             # Si hay horario cargado, se avisa de los choques; si no lo hay,
             # el evaluador simplemente no encuentra nada que objetar.
@@ -880,6 +957,8 @@ def sugerencias(cx: sqlite3.Connection, params: dict) -> dict:
                     "persona_id": f["persona_id"],
                     "iniciales": f["iniciales"],
                     "nombre": f["nombre"],
+                    "categoria": f["categoria"],
+                    "de_otra_categoria": f["categoria"] != categoria,
                     "horas": horas_de.get(f["persona_id"]),
                     "asignado": f["iniciales"] in ya,
                     "nivel": evaluacion.nivel,
@@ -910,6 +989,7 @@ def sugerencias(cx: sqlite3.Connection, params: dict) -> dict:
                 "libres": max(0, int(v["cupos"] or 0) - len(ya)),
                 "candidatos": candidatos,
                 "sin_solicitudes": not candidatos,
+                "abierto_a": grupos_admitidos,
             }
         )
 
@@ -919,6 +999,7 @@ def sugerencias(cx: sqlite3.Connection, params: dict) -> dict:
         "desde": desde.isoformat(),
         "hasta": hasta.isoformat(),
         "periodo": periodo,
+        "ronda": ronda,
         "lugares": lugares,
         "total_lugares": sum(int(l["cupos"] or 0) for l in lugares),
         "total_asignados": sum(len(l["asignados"]) for l in lugares),

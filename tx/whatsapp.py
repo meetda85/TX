@@ -448,26 +448,70 @@ def generar_publicacion(
     return "\n".join(lineas)
 
 
+#: Encabezado de cada ronda. En la primera se publica de cero; en las
+#: siguientes se está reofreciendo lo que quedó sin cubrir.
+SALUDOS_RONDA = {
+    1: "Buen día, TX disponible:",
+    2: "Buen día, sigue disponible TX:",
+    3: "Buen día, sigue disponible TX:",
+}
+
+#: Así lo anuncian hoy en los grupos cuando un lugar sube de categoría.
+ENCABEZADO_OTRA = "TX disponible aún de otra categoría:"
+
+
 def generar_publicaciones_por_grupo(
-    vacantes: list[dict], *, con_dia_semana: bool = False
+    vacantes: list[dict],
+    *,
+    con_dia_semana: bool = False,
+    ronda: int = 1,
 ) -> list[dict]:
-    """Un mensaje por grupo de WhatsApp, listos para copiar y pegar."""
-    por_categoria: dict[str, list[dict]] = {}
+    """Un mensaje por grupo de WhatsApp, listos para copiar y pegar.
+
+    Cada vacante trae su propia categoría; el alcance de la ronda decide a qué
+    grupos se le ofrece. Lo que viene de otra categoría se anuncia en un bloque
+    aparte, como se hace hoy en los chats.
+    """
+    propias: dict[str, list[dict]] = {}
+    escaladas: dict[str, list[dict]] = {}
+
     for v in vacantes:
         categoria = v.get("categoria") or "ATCO"
-        por_categoria.setdefault(categoria, []).append(v)
+        for grupo in T.alcance(categoria, ronda):
+            destino = propias if grupo == categoria else escaladas
+            destino.setdefault(grupo, []).append(v)
 
     salida = []
-    for categoria in ("SUPERVISOR", "ATCO", "AUX"):
-        lote = por_categoria.get(categoria, [])
-        if not lote:
+    for grupo in ("SUPERVISOR", "ATCO", "AUX"):
+        mias = propias.get(grupo, [])
+        otras = escaladas.get(grupo, [])
+        if not mias and not otras:
             continue
+
+        partes = []
+        if mias:
+            partes.append(
+                generar_publicacion(
+                    mias, saludo=SALUDOS_RONDA.get(ronda, SALUDOS_RONDA[1]),
+                    con_dia_semana=con_dia_semana,
+                )
+            )
+        if otras:
+            partes.append(
+                generar_publicacion(
+                    otras, saludo=ENCABEZADO_OTRA, con_dia_semana=con_dia_semana
+                )
+            )
+
         salida.append(
             {
-                "categoria": categoria,
-                "grupo": GRUPOS[categoria],
-                "mensaje": generar_publicacion(lote, con_dia_semana=con_dia_semana),
-                "lugares": sum(int(v.get("cupos") or 1) for v in lote),
+                "categoria": grupo,
+                "grupo": GRUPOS[grupo],
+                "mensaje": "\n\n".join(p for p in partes if p),
+                "lugares": sum(int(v.get("cupos") or 1) for v in mias + otras),
+                "propios": sum(int(v.get("cupos") or 1) for v in mias),
+                "de_otra": sum(int(v.get("cupos") or 1) for v in otras),
+                "ronda": ronda,
             }
         )
     return salida

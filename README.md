@@ -94,6 +94,55 @@ Al final, el mensaje de asignación listo para copiar con su `Pls ack`.
 
 ---
 
+## Las tres rondas
+
+El tiempo extra se publica en tres rondas separadas en el tiempo. Cada una
+reofrece **sólo lo que quedó sin cubrir** de la anterior, y lo sobrante va
+subiendo de categoría.
+
+**El tiempo extra sólo sube, nunca baja.** Un auxiliar no puede cubrir un
+puesto de torre, así que un lugar de torre jamás se ofrece al grupo de
+auxiliares. Al revés sí: torre alcanza para auxiliar, y supervisor para todo.
+
+| Quién | Puede cubrir |
+|---|---|
+| Auxiliar | auxiliar |
+| Torre (ATCO) | torre y auxiliar |
+| Supervisor | las tres |
+
+De ahí sale a qué grupos llega cada lugar en cada ronda:
+
+| Lugar de… | Ronda 1 | Ronda 2 | Ronda 3 |
+|---|---|---|---|
+| **Auxiliares** | auxiliares | auxiliares + torre | auxiliares + torre + supervisores |
+| **Torre** | torre | torre | torre + supervisores |
+| **Supervisor** | supervisores | supervisores | supervisores |
+
+La ronda se elige en el selector de la barra superior y queda guardada. Los
+mensajes y la lista de candidatos se recalculan solos.
+
+Cuando a un grupo le llega un lugar que no es de su categoría, va en un bloque
+aparte encabezado *«TX disponible aún de otra categoría:»* — la misma frase que
+se usa hoy en los chats.
+
+```
+ATCO's TWR MEX  ·  ronda 2
+
+Buen día, sigue disponible TX:
+12 en C (2)
+13 en K (3)
+
+TX disponible aún de otra categoría:
+14 en K
+16 en C (4)
+```
+
+Al asignar, el sistema **rechaza** que alguien tome un puesto por encima de su
+categoría, en cualquier ronda. Y en la lista de candidatos, quien viene de otra
+categoría lleva una etiqueta para que se note de dónde salió.
+
+---
+
 ## La regla de los tres días
 
 Cuando hay horario base cargado (pestaña *Personal*), el sistema vigila:
@@ -249,7 +298,7 @@ tx/
   semilla.py    Horario de agosto 2026 de S-TWR para arrancar
   web/          Interfaz (HTML, CSS y JavaScript sin frameworks)
 datos/          Base de datos local (no se versiona)
-pruebas/        161 pruebas automatizadas
+pruebas/        190 pruebas automatizadas
 ```
 
 ## Pruebas

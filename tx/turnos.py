@@ -76,6 +76,54 @@ UBICACIONES: tuple[str, ...] = ("TWR1", "T2")
 
 CATEGORIAS: tuple[str, ...] = ("SUPERVISOR", "ATCO", "AUX")
 
+#: Escalafón de menor a mayor alcance. Quien está arriba puede cubrir lo de
+#: abajo, nunca al revés: un auxiliar no puede tomar un lugar de torre.
+JERARQUIA: tuple[str, ...] = ("AUX", "ATCO", "SUPERVISOR")
+
+#: Hasta cuántos escalones sube un lugar sobrante en cada ronda.
+#: El tiempo extra sólo sube; lo de supervisor se queda en supervisor porque
+#: ya está en la punta del escalafón.
+ESCALONES_POR_RONDA: dict[int, dict[str, int]] = {
+    1: {"AUX": 0, "ATCO": 0, "SUPERVISOR": 0},
+    2: {"AUX": 1, "ATCO": 0, "SUPERVISOR": 0},
+    3: {"AUX": 2, "ATCO": 1, "SUPERVISOR": 0},
+}
+
+RONDAS: tuple[int, ...] = (1, 2, 3)
+
+
+def puede_cubrir(categoria_persona: str, categoria_lugar: str) -> bool:
+    """True si esa categoría alcanza para cubrir ese lugar.
+
+    Auxiliar sólo hace auxiliar; torre hace torre y auxiliar; supervisor hace
+    de todo.
+    """
+    if categoria_persona not in JERARQUIA or categoria_lugar not in JERARQUIA:
+        return False
+    return JERARQUIA.index(categoria_persona) >= JERARQUIA.index(categoria_lugar)
+
+
+def alcance(categoria_lugar: str, ronda: int) -> list[str]:
+    """A qué grupos se les ofrece un lugar de esa categoría en esa ronda.
+
+    Ronda 1 respeta la categoría; en la 2 lo que sobró de auxiliares sube a
+    torre; en la 3 sube todo lo que pueda subir.
+    """
+    if categoria_lugar not in JERARQUIA:
+        return []
+    escalones = ESCALONES_POR_RONDA.get(ronda, ESCALONES_POR_RONDA[1])[categoria_lugar]
+    base = JERARQUIA.index(categoria_lugar)
+    return list(JERARQUIA[base : base + escalones + 1])
+
+
+def es_de_otra_categoria(categoria_persona: str, categoria_lugar: str) -> bool:
+    """True si el lugar viene de una categoría distinta a la de la persona.
+
+    Sirve para separarlo en el mensaje: así lo anuncian hoy en los grupos,
+    «TX disponible aún de otra categoría».
+    """
+    return categoria_persona != categoria_lugar
+
 
 def es_laborable(codigo: str | None) -> bool:
     """True si el código representa una jornada efectiva de trabajo."""

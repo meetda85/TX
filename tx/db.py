@@ -121,6 +121,9 @@ CREATE INDEX IF NOT EXISTS idx_vacantes_fecha     ON vacantes(fecha);
 AJUSTES_POR_DEFECTO = {
     "max_dobles_consecutivas": "2",
     "publicado_desde": "",
+    # Ronda de publicación en curso: 1 respeta la categoría, 2 sube lo que
+    # sobró de auxiliares a torre, 3 sube todo lo que pueda subir.
+    "ronda": "1",
 }
 
 

@@ -704,3 +704,38 @@ table.datos tr.fila-grupo:hover td { background: var(--papel-2); }
 .lugar ol li.n-PROHIBIDO .quien em.choque { color: var(--alto); }
 .lugar ol li.n-PROHIBIDO .puesto { background: var(--alto-fondo); color: var(--alto); }
 .lugar ol li.sugerido.n-PROHIBIDO .puesto { background: var(--alto); color: #fff; }
+
+/* ---------- Selector de ronda ---------- */
+
+.selector-ronda {
+  display: flex; align-items: center; gap: 3px;
+  padding: 3px 4px 3px 9px; border-radius: 9px;
+  border: 1px solid var(--borde); background: var(--papel-2);
+}
+.rotulo-ronda {
+  font-size: 10px; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--tinta-suave); margin-right: 3px;
+}
+.ronda-btn {
+  width: 26px; height: 26px; border-radius: 6px; cursor: pointer;
+  border: 1px solid transparent; background: transparent; color: var(--tinta-suave);
+  font: 750 13px ui-monospace, Menlo, Consolas, monospace;
+}
+.ronda-btn:hover { border-color: var(--borde-fuerte); color: var(--tinta); }
+.ronda-btn.activa { background: var(--acento); border-color: var(--acento); color: var(--acento-tinta); }
+
+/* Bloque «de otra categoría» dentro del mensaje */
+.mensaje-caja .escalado {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 20px;
+  font-size: 10.5px; font-weight: 700;
+  background: var(--aviso-fondo); color: var(--aviso);
+  border: 1px solid var(--aviso);
+}
+
+/* Candidato que viene de otra categoría */
+.lugar ol li .quien .otra-cat {
+  display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; vertical-align: 1px;
+  background: var(--aviso-fondo); color: var(--aviso); border: 1px solid var(--aviso);
+}
+.lugar > header .abierto-a { font-size: 11px; color: var(--tinta-suave); }
