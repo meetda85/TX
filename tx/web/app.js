@@ -603,10 +603,17 @@ function pintarMatriz(datos) {
   const filas = datos.dias.map(d => {
     const celdas = GRUPOS_ORDEN.map(g => turnos.map((t, i) => {
       const valor = datos.cupos[`${d.fecha}|${g}|${t}`] || '';
+      const etiqueta = `${GRUPOS_TITULO[g]} en turno ${t} el ${d.dia}`;
       return `<td class="${i === turnos.length - 1 ? 'sep' : ''}">
-        <input type="number" class="cupo ${valor ? 'puesto' : ''}" min="0" max="20" placeholder="·"
-               value="${valor}" data-fecha="${d.fecha}" data-grupo="${g}" data-turno="${t}"
-               aria-label="Lugares de ${GRUPOS_TITULO[g]} en turno ${t} el ${d.dia}">
+        <div class="paso">
+          <button type="button" class="paso-btn" data-delta="-1" tabindex="-1"
+                  aria-label="Un lugar menos de ${etiqueta}">−</button>
+          <input type="number" class="cupo ${valor ? 'puesto' : ''}" min="0" max="20" placeholder="·"
+                 value="${valor}" data-fecha="${d.fecha}" data-grupo="${g}" data-turno="${t}"
+                 aria-label="Lugares de ${etiqueta}">
+          <button type="button" class="paso-btn" data-delta="1" tabindex="-1"
+                  aria-label="Un lugar más de ${etiqueta}">+</button>
+        </div>
       </td>`;
     }).join('')).join('');
 
@@ -641,26 +648,11 @@ function pintarMatriz(datos) {
     : 'Todavía no hay lugares capturados';
 
   $$('#pub-matriz input.cupo').forEach(campo => {
-    const guardar = async () => {
-      if (campo.dataset.ocupado) return;
-      campo.dataset.ocupado = '1';
-      try {
-        await enviar('/api/vacantes/cupos', {
-          cupos: [{
-            fecha: campo.dataset.fecha,
-            categoria: campo.dataset.grupo,
-            turno: campo.dataset.turno,
-            cupos: campo.value === '' ? 0 : Number(campo.value),
-          }],
-        });
-        await cargarMatriz();
-      } catch (err) { fallar(err); }
-      finally { delete campo.dataset.ocupado; }
-    };
-    campo.addEventListener('change', guardar);
+    campo.addEventListener('change', () => fijarCupo(campo, campo.value));
     campo.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { campo.blur(); return; }
-      // Flechas para moverse por la rejilla sin soltar el teclado.
+      // Como en una hoja de cálculo: las flechas mueven de casilla, y para
+      // subir o bajar el número están los botones − y +.
       const paso = { ArrowUp: -1, ArrowDown: 1 }[e.key];
       if (!paso) return;
       e.preventDefault();
@@ -670,6 +662,74 @@ function pintarMatriz(datos) {
       if (destino) { destino.focus(); destino.select(); }
     });
   });
+
+  $$('#pub-matriz .paso-btn').forEach(boton => {
+    boton.addEventListener('click', () => {
+      const campo = $('input.cupo', boton.parentElement);
+      const actual = Number(campo.value) || 0;
+      fijarCupo(campo, actual + Number(boton.dataset.delta));
+    });
+  });
+}
+
+/** Fija los lugares de una casilla sin repintar la tabla entera.
+ *
+ *  Repintar en cada clic hacía perder el foco y el «+» se escapaba del cursor,
+ *  así que la casilla y los totales se actualizan en el momento y el guardado
+ *  viaja aparte.
+ */
+function fijarCupo(campo, valorCrudo) {
+  const n = Math.max(0, Math.min(20, Number(valorCrudo) || 0));
+  campo.value = n || '';
+  campo.classList.toggle('puesto', n > 0);
+  recalcularTotales();
+
+  clearTimeout(fijarCupo._temporizador);
+  fijarCupo._temporizador = setTimeout(async () => {
+    try {
+      await enviar('/api/vacantes/cupos', {
+        cupos: [{
+          fecha: campo.dataset.fecha,
+          categoria: campo.dataset.grupo,
+          turno: campo.dataset.turno,
+          cupos: n,
+        }],
+      });
+      await cargarMensajesGrupo();
+    } catch (err) { fallar(err); await cargarMatriz(); }
+  }, 180);
+}
+
+/** Recalcula los totales de la tabla leyendo lo que hay en pantalla. */
+function recalcularTotales() {
+  const filas = $$('#pub-matriz tbody tr:not(.totales)');
+  const columnas = [];
+  let general = 0;
+
+  filas.forEach(fila => {
+    let suma = 0;
+    $$('input.cupo', fila).forEach((campo, indice) => {
+      const n = Number(campo.value) || 0;
+      suma += n;
+      columnas[indice] = (columnas[indice] || 0) + n;
+    });
+    const celda = $('.total-fila', fila);
+    if (celda) celda.textContent = suma || '';
+    general += suma;
+  });
+
+  const pie = $('#pub-matriz tr.totales');
+  if (pie) {
+    $$('td', pie).slice(1, -1).forEach((celda, indice) => {
+      celda.textContent = columnas[indice] || '';
+    });
+    const ultima = $('.total-fila', pie);
+    if (ultima) ultima.textContent = general || '';
+  }
+
+  $('#pub-conteo').textContent = general
+    ? `${general} lugar(es) en el rango`
+    : 'Todavía no hay lugares capturados';
 }
 
 async function cargarMensajesGrupo() {

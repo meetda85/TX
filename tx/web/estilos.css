@@ -438,8 +438,29 @@ table.matriz tr.hoy td.dia-cel { box-shadow: inset 3px 0 0 var(--acento); }
 
 table.matriz td.sep { border-right: 2px solid var(--borde-fuerte); }
 
+/* Casilla con botones − y + para subir o bajar con el mouse.
+   Se mantienen apagados hasta que el cursor entra en la celda: con 126
+   casillas, tenerlos siempre encendidos tapaba los números. Ocupan su lugar
+   aunque estén invisibles, así que la tabla nunca brinca. */
+.paso { display: flex; align-items: center; justify-content: center; gap: 1px; }
+.paso-btn {
+  flex: none; width: 21px; height: 26px; padding: 0; cursor: pointer;
+  border: 1px solid transparent; border-radius: 5px;
+  background: transparent; color: var(--tinta-suave);
+  font-size: 15px; font-weight: 700; line-height: 1;
+  display: grid; place-items: center;
+  opacity: 0; transition: opacity .12s;
+}
+.paso:hover .paso-btn,
+.paso:focus-within .paso-btn,
+.paso:has(.cupo.puesto) .paso-btn { opacity: 1; }
+.paso:hover .paso-btn { border-color: var(--borde); }
+.paso-btn:hover { background: var(--acento); border-color: var(--acento); color: #fff; opacity: 1; }
+.paso-btn:active { transform: scale(.9); }
+@media (prefers-reduced-motion: reduce) { .paso-btn { transition: none; } }
+
 table.matriz input.cupo {
-  width: 46px; padding: 5px 4px; text-align: center;
+  width: 34px; padding: 5px 2px; text-align: center;
   font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px;
   border: 1px solid transparent; background: transparent; border-radius: 6px;
   -moz-appearance: textfield;
