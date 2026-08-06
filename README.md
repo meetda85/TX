@@ -26,6 +26,10 @@ la casilla *«Add Python to PATH»*). No se instala ninguna otra librería: el
 programa usa exclusivamente lo que Python trae de fábrica, para que funcione
 en máquinas con permisos restringidos y sin internet.
 
+Si es la primera vez, el paso a paso completo —incluido qué hacer cuando algo
+falla— está en **[`COMO_INSTALAR.txt`](COMO_INSTALAR.txt)**, en texto plano
+para abrirlo con doble clic en el Bloc de notas.
+
 ---
 
 ## Cómo se usa: cinco pasos

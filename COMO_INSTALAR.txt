@@ -1,0 +1,148 @@
+========================================================================
+  ASIGNACION DE TIEMPO EXTRA - TWR MEX
+  Como instalarlo en la computadora
+========================================================================
+
+Son tres pasos y se hacen una sola vez. Despues, para abrir el programa
+basta con dar doble clic.
+
+
+------------------------------------------------------------------------
+PASO 1 - Instalar Python
+------------------------------------------------------------------------
+
+Python es el motor que hace funcionar el programa. Es gratuito y lo
+publica una fundacion sin fines de lucro.
+
+  1. Entra a:   https://www.python.org/downloads/
+
+  2. Pulsa el boton amarillo que dice "Download Python 3.x"
+     (la pagina detecta sola tu sistema)
+
+  3. Abre el archivo que se descargo
+
+  4. *** LO MAS IMPORTANTE ***
+     Antes de pulsar "Install Now", MARCA la casilla que dice
+     "Add python.exe to PATH". Esta hasta abajo de la ventana y
+     viene desmarcada.
+
+     Si no la marcas, el programa no va a encontrar Python y
+     tendras que desinstalar y volver a empezar.
+
+  5. Pulsa "Install Now" y espera a que termine
+
+  6. Cierra la ventana del instalador
+
+No hace falta instalar nada mas. El programa usa unicamente lo que
+Python trae de fabrica: no descarga librerias, no necesita internet
+y no manda nada a ningun servidor.
+
+
+------------------------------------------------------------------------
+PASO 2 - Bajar el programa
+------------------------------------------------------------------------
+
+  1. Entra a:
+
+     https://github.com/meetda85/TX/archive/refs/heads/claude/overtime-assignment-software-3wrc4n.zip
+
+     La descarga empieza sola.
+
+  2. Busca el archivo .zip en tu carpeta de Descargas
+
+  3. Clic derecho sobre el > "Extraer todo..." > "Extraer"
+
+  4. Se crea una carpeta. Muevela a donde la quieras tener:
+     el Escritorio o Documentos estan bien.
+
+     SUGERENCIA: dejala en un lugar fijo. Ahi dentro se van a
+     guardar todos tus datos.
+
+
+------------------------------------------------------------------------
+PASO 3 - Abrirlo
+------------------------------------------------------------------------
+
+  1. Entra a la carpeta que extrajiste
+
+  2. Doble clic en:   iniciar.bat
+
+  3. Se abre una ventana negra (no la cierres) y enseguida
+     el programa aparece en tu navegador
+
+  4. Para cerrarlo: cierra la ventana negra
+
+La primera vez Windows puede preguntar si permites el acceso a la red.
+Puedes decir que NO sin problema: el programa solo habla consigo mismo
+dentro de tu computadora, nunca sale a internet.
+
+
+========================================================================
+  PARA ABRIRLO TODOS LOS DIAS
+========================================================================
+
+Doble clic en "iniciar.bat". Nada mas.
+
+Para tenerlo mas a la mano:
+  Clic derecho sobre iniciar.bat > "Enviar a" > "Escritorio (crear
+  acceso directo)". Asi te queda un icono en el escritorio.
+
+
+========================================================================
+  DONDE QUEDAN TUS DATOS
+========================================================================
+
+Todo vive en la carpeta "datos", junto al programa:
+
+  datos\tx.db          <- la base de datos
+  datos\respaldos\     <- las copias que saca al limpiar
+
+Para respaldar por tu cuenta, copia la carpeta "datos" completa a una
+memoria USB o a OneDrive.
+
+Para pasar el programa a otra computadora, copia la carpeta entera:
+se lleva los datos consigo.
+
+
+========================================================================
+  SI ALGO SALE MAL
+========================================================================
+
+"No se encontro Python"
+  No se instalo, o no se marco la casilla "Add python.exe to PATH".
+  Vuelve a instalarlo desde python.org marcando esa casilla.
+
+"La version de Python es demasiado vieja"
+  Hace falta la 3.9 o mas nueva. Instala la version actual de
+  python.org; puede convivir con la vieja sin problema.
+
+Se abre la Microsoft Store en vez del programa
+  Windows trae un atajo falso de Python. Instala el Python de
+  verdad desde python.org y vuelve a intentar.
+
+La ventana negra se abre y se cierra de inmediato
+  Abre la carpeta, escribe "cmd" en la barra de direcciones del
+  explorador y pulsa Enter. En la ventana que aparece escribe:
+
+      python -m tx
+
+  El mensaje de error se queda en pantalla y lo puedes leer.
+
+El navegador no abre solo
+  Abre tu navegador y escribe:   127.0.0.1:8787
+
+Olvidaste la clave del catalogo de personal
+  Se puede recuperar borrando el ajuste "clave_personal" de la base
+  de datos. Pide ayuda a alguien de sistemas, o borra el archivo
+  datos\tx.db para empezar de cero (se pierde todo lo capturado).
+
+
+========================================================================
+  EN MAC O LINUX
+========================================================================
+
+Python ya viene instalado. Abre una terminal en la carpeta y escribe:
+
+    python3 -m tx
+
+O da doble clic en "iniciar.sh".
