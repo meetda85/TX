@@ -75,6 +75,28 @@ Los turnos que se publican como tiempo extra son **C**, **K** y **O**.
 
 ## Las pantallas
 
+### Publicar
+
+El punto de partida del día. Una rejilla de **días × (grupo × turno)** donde
+anotas cuántos lugares de tiempo extra hay. Puede haber varios el mismo día y
+para más de un grupo a la vez; las flechas ↑↓ mueven el cursor sin soltar el
+teclado.
+
+Abajo salen **tres mensajes, uno por grupo de WhatsApp**, con sólo lo que a
+cada quien le toca y listos para copiar y pegar:
+
+```
+Supervisores TWR MEX      ATCO's TWR MEX          AUX's TWR MEX
+Buen día, TX disponible:  Buen día, TX disponible: Buen día, TX disponible:
+13 en K                   13 en K (3)              14 en K
+14 en C y K               14 en C (2)              16 en C (4)
+                          15 en C, K y O
+```
+
+Los cupos van entre paréntesis sólo cuando hay más de un lugar, y en cuanto un
+turno lleva cupo el día se desglosa renglón por renglón — así lo escriben en
+los grupos y así se relee sin ambigüedad.
+
 ### Cuadrícula
 
 La vista principal: **personal en filas, días del mes en columnas**. Cada celda
@@ -204,7 +226,7 @@ tx/
   semilla.py    Horario de agosto 2026 de S-TWR para arrancar
   web/          Interfaz (HTML, CSS y JavaScript sin frameworks)
 datos/          Base de datos local (no se versiona)
-pruebas/        109 pruebas automatizadas
+pruebas/        136 pruebas automatizadas
 ```
 
 ## Pruebas

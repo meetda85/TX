@@ -48,6 +48,7 @@ def _rango_mes(anio: int, mes: int) -> tuple[date, date]:
 
 
 _DOW = ("L", "M", "M", "J", "V", "S", "D")
+_DOW_LARGO = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
 
 
 # ---------------------------------------------------------------------------
@@ -525,6 +526,151 @@ def crear_vacantes(cx: sqlite3.Connection, cuerpo: dict) -> dict:
     return {"ok": True, "creadas": creadas}
 
 
+def matriz_vacantes(cx: sqlite3.Connection, params: dict) -> dict:
+    """Los lugares disponibles como rejilla de días × (categoría, turno).
+
+    Es la forma en que el supervisor los captura: una fila por día y una
+    casilla por cada combinación de grupo y turno, donde va la cantidad.
+    """
+    hoy = date.today()
+    desde = _fecha(params["desde"][0], "desde") if params.get("desde") else hoy
+    dias = int(params.get("dias", [14])[0])
+    dias = max(1, min(dias, 62))
+    hasta = desde + timedelta(days=dias - 1)
+
+    filas = cx.execute(
+        "SELECT * FROM vacantes WHERE fecha BETWEEN ? AND ?",
+        (desde.isoformat(), hasta.isoformat()),
+    ).fetchall()
+
+    cupos: dict[str, int] = {}
+    for v in filas:
+        if v["estado"] != "ABIERTA":
+            continue
+        categoria = v["categoria"] or "ATCO"
+        clave = f"{v['fecha']}|{categoria}|{v['turno']}"
+        cupos[clave] = cupos.get(clave, 0) + int(v["cupos"] or 0)
+
+    calendario = []
+    cursor = desde
+    while cursor <= hasta:
+        calendario.append(
+            {
+                "fecha": cursor.isoformat(),
+                "dia": cursor.day,
+                "dow": _DOW[cursor.weekday()],
+                "dow_largo": _DOW_LARGO[cursor.weekday()],
+                "mes": cursor.month,
+                "finde": cursor.weekday() >= 5,
+                "hoy": cursor == hoy,
+            }
+        )
+        cursor += timedelta(days=1)
+
+    return {
+        "desde": desde.isoformat(),
+        "hasta": hasta.isoformat(),
+        "dias": calendario,
+        "categorias": list(T.CATEGORIAS),
+        "grupos": whatsapp.GRUPOS,
+        "turnos": list(T.TRONCALES),
+        "cupos": cupos,
+        "total_lugares": sum(cupos.values()),
+    }
+
+
+def fijar_cupos(cx: sqlite3.Connection, cuerpo: dict) -> dict:
+    """Fija cuántos lugares hay de un turno, un día y un grupo.
+
+    Con cero se borra la vacante: es la forma de corregir una publicación.
+    """
+    entradas = cuerpo.get("cupos") or []
+    if isinstance(entradas, dict):
+        entradas = [entradas]
+    if not entradas:
+        raise ErrorPeticion("No se recibió ningún dato")
+
+    guardados = 0
+    for entrada in entradas:
+        fecha = _fecha(entrada.get("fecha"))
+        turno = _turno_valido(entrada.get("turno"))
+        categoria = entrada.get("categoria")
+        if categoria not in T.CATEGORIAS:
+            raise ErrorPeticion(f"Categoría inválida: {categoria}")
+        ubicacion = entrada.get("ubicacion") or "TWR1"
+
+        try:
+            cantidad = int(entrada.get("cupos") or 0)
+        except (TypeError, ValueError) as exc:
+            raise ErrorPeticion(f"«{entrada.get('cupos')}» no es una cantidad válida") from exc
+        if cantidad < 0:
+            raise ErrorPeticion("La cantidad no puede ser negativa")
+        if cantidad > 20:
+            raise ErrorPeticion("Máximo 20 lugares por turno")
+
+        if cantidad == 0:
+            cx.execute(
+                "DELETE FROM vacantes WHERE fecha=? AND turno=? AND ubicacion=? AND categoria=?",
+                (fecha.isoformat(), turno, ubicacion, categoria),
+            )
+        else:
+            db.crear_vacante(
+                cx,
+                fecha=fecha,
+                turno=turno,
+                ubicacion=ubicacion,
+                categoria=categoria,
+                cupos=cantidad,
+            )
+        guardados += 1
+
+    cx.commit()
+    return {"ok": True, "guardados": guardados}
+
+
+def publicaciones(cx: sqlite3.Connection, params: dict) -> dict:
+    """Los mensajes listos para copiar y pegar, uno por grupo de WhatsApp."""
+    hoy = date.today()
+    desde = _fecha(params["desde"][0], "desde") if params.get("desde") else hoy
+    hasta = _fecha(params["hasta"][0], "hasta") if params.get("hasta") else desde + timedelta(days=30)
+    con_dia = params.get("dia_semana", ["0"])[0] == "1"
+
+    filas = cx.execute(
+        "SELECT * FROM vacantes WHERE fecha BETWEEN ? AND ? AND estado = 'ABIERTA' "
+        "ORDER BY fecha, turno",
+        (desde.isoformat(), hasta.isoformat()),
+    ).fetchall()
+
+    vacantes = [
+        {
+            "fecha": v["fecha"],
+            "turno": v["turno"],
+            "cupos": v["cupos"],
+            "categoria": v["categoria"] or "ATCO",
+        }
+        for v in filas
+    ]
+
+    return {
+        "desde": desde.isoformat(),
+        "hasta": hasta.isoformat(),
+        "mensajes": whatsapp.generar_publicaciones_por_grupo(vacantes, con_dia_semana=con_dia),
+        "total_lugares": sum(int(v["cupos"] or 1) for v in vacantes),
+    }
+
+
+def limpiar_vacantes(cx: sqlite3.Connection, cuerpo: dict) -> dict:
+    """Borra las vacantes de un rango. Sirve para empezar una publicación nueva."""
+    desde = _fecha(cuerpo.get("desde"), "desde")
+    hasta = _fecha(cuerpo.get("hasta") or cuerpo.get("desde"), "hasta")
+    cur = cx.execute(
+        "DELETE FROM vacantes WHERE fecha BETWEEN ? AND ?",
+        (desde.isoformat(), hasta.isoformat()),
+    )
+    cx.commit()
+    return {"ok": True, "borradas": cur.rowcount}
+
+
 def borrar_vacante(cx: sqlite3.Connection, cuerpo: dict) -> dict:
     if not cuerpo.get("id"):
         raise ErrorPeticion("Falta el id")
@@ -848,6 +994,8 @@ GET = {
     "/api/candidatos": candidatos,
     "/api/evaluar": evaluar_uno,
     "/api/vacantes": listar_vacantes,
+    "/api/vacantes/matriz": matriz_vacantes,
+    "/api/publicaciones": publicaciones,
     "/api/totales": listar_totales,
 }
 
@@ -861,6 +1009,8 @@ POST = {
     "/api/asignaciones/borrar": borrar_asignacion,
     "/api/asignaciones/acuse": acusar,
     "/api/vacantes/crear": crear_vacantes,
+    "/api/vacantes/cupos": fijar_cupos,
+    "/api/vacantes/limpiar": limpiar_vacantes,
     "/api/vacantes/borrar": borrar_vacante,
     "/api/solicitudes": registrar_solicitudes,
     "/api/totales/guardar": guardar_totales,

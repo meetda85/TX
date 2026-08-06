@@ -577,6 +577,142 @@ function pintarCandidatos(datos) {
 }
 
 /* ==========================================================================
+   PUBLICAR — captura de lugares y mensajes por grupo
+   ========================================================================== */
+
+const GRUPOS_ORDEN = ['SUPERVISOR', 'ATCO', 'AUX'];
+const GRUPOS_TITULO = { SUPERVISOR: 'Supervisores', ATCO: 'ATCO (TWR)', AUX: 'Auxiliares' };
+
+async function cargarMatriz() {
+  const desde = $('#pub-desde').value || hoyISO();
+  $('#pub-desde').value = desde;
+  try {
+    const datos = await obtener('/api/vacantes/matriz', { desde, dias: $('#pub-dias').value });
+    pintarMatriz(datos);
+    await cargarMensajesGrupo();
+  } catch (err) { fallar(err); }
+}
+
+function pintarMatriz(datos) {
+  const turnos = datos.turnos;
+  const cabGrupos = GRUPOS_ORDEN.map(g =>
+    `<th class="grupo-cab g-${g}" colspan="${turnos.length}">${GRUPOS_TITULO[g]}</th>`).join('');
+  const cabTurnos = GRUPOS_ORDEN.map(g =>
+    turnos.map((t, i) => `<th class="${i === turnos.length - 1 ? 'sep' : ''}">${t}</th>`).join('')).join('');
+
+  const filas = datos.dias.map(d => {
+    const celdas = GRUPOS_ORDEN.map(g => turnos.map((t, i) => {
+      const valor = datos.cupos[`${d.fecha}|${g}|${t}`] || '';
+      return `<td class="${i === turnos.length - 1 ? 'sep' : ''}">
+        <input type="number" class="cupo ${valor ? 'puesto' : ''}" min="0" max="20" placeholder="·"
+               value="${valor}" data-fecha="${d.fecha}" data-grupo="${g}" data-turno="${t}"
+               aria-label="Lugares de ${GRUPOS_TITULO[g]} en turno ${t} el ${d.dia}">
+      </td>`;
+    }).join('')).join('');
+
+    const total = GRUPOS_ORDEN.reduce((suma, g) =>
+      suma + turnos.reduce((s, t) => s + (datos.cupos[`${d.fecha}|${g}|${t}`] || 0), 0), 0);
+
+    return `<tr class="${d.finde ? 'finde' : ''} ${d.hoy ? 'hoy' : ''}">
+      <td class="dia-cel"><b>${d.dia}</b><small>${d.dow_largo.slice(0, 3)}</small></td>
+      ${celdas}
+      <td class="total-fila">${total || ''}</td>
+    </tr>`;
+  }).join('');
+
+  const totalPorColumna = GRUPOS_ORDEN.map(g => turnos.map((t, i) => {
+    const suma = datos.dias.reduce((s, d) => s + (datos.cupos[`${d.fecha}|${g}|${t}`] || 0), 0);
+    return `<td class="${i === turnos.length - 1 ? 'sep' : ''}">${suma || ''}</td>`;
+  }).join('')).join('');
+
+  $('#pub-matriz').innerHTML = `<div class="matriz-envoltura"><table class="matriz">
+    <thead>
+      <tr><th class="dia-cab" rowspan="2">Día</th>${cabGrupos}<th rowspan="2">Total</th></tr>
+      <tr>${cabTurnos}</tr>
+    </thead>
+    <tbody>${filas}
+      <tr class="totales"><td class="dia-cel">Total</td>${totalPorColumna}
+        <td class="total-fila">${datos.total_lugares || ''}</td></tr>
+    </tbody>
+  </table></div>`;
+
+  $('#pub-conteo').textContent = datos.total_lugares
+    ? `${datos.total_lugares} lugar(es) en el rango`
+    : 'Todavía no hay lugares capturados';
+
+  $$('#pub-matriz input.cupo').forEach(campo => {
+    const guardar = async () => {
+      if (campo.dataset.ocupado) return;
+      campo.dataset.ocupado = '1';
+      try {
+        await enviar('/api/vacantes/cupos', {
+          cupos: [{
+            fecha: campo.dataset.fecha,
+            categoria: campo.dataset.grupo,
+            turno: campo.dataset.turno,
+            cupos: campo.value === '' ? 0 : Number(campo.value),
+          }],
+        });
+        await cargarMatriz();
+      } catch (err) { fallar(err); }
+      finally { delete campo.dataset.ocupado; }
+    };
+    campo.addEventListener('change', guardar);
+    campo.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { campo.blur(); return; }
+      // Flechas para moverse por la rejilla sin soltar el teclado.
+      const paso = { ArrowUp: -1, ArrowDown: 1 }[e.key];
+      if (!paso) return;
+      e.preventDefault();
+      const todos = $$('#pub-matriz input.cupo');
+      const cols = GRUPOS_ORDEN.length * 3;
+      const destino = todos[todos.indexOf(campo) + paso * cols];
+      if (destino) { destino.focus(); destino.select(); }
+    });
+  });
+}
+
+async function cargarMensajesGrupo() {
+  const desde = $('#pub-desde').value || hoyISO();
+  const dias = Number($('#pub-dias').value);
+  const hasta = new Date(new Date(desde + 'T12:00:00').getTime() + (dias - 1) * 864e5)
+    .toISOString().slice(0, 10);
+  try {
+    const datos = await obtener('/api/publicaciones', {
+      desde, hasta, dia_semana: $('#pub-dia-semana').checked ? 1 : 0,
+    });
+    const cont = $('#pub-mensajes');
+    if (!datos.mensajes.length) {
+      cont.innerHTML = '<p class="vacio">Captura lugares arriba y aquí aparecen los mensajes.</p>';
+      return;
+    }
+    cont.innerHTML = datos.mensajes.map(m => `
+      <div class="mensaje-caja g-${m.categoria}">
+        <header>
+          <b>${escapar(m.grupo)}</b>
+          <span class="cuantos">${m.lugares} lugar(es)</span>
+        </header>
+        <pre id="msj-${m.categoria}">${escapar(m.mensaje)}</pre>
+        <footer><button class="btn chico" data-copiar="${m.categoria}">Copiar mensaje</button></footer>
+      </div>`).join('');
+
+    $$('[data-copiar]', cont).forEach(b => b.addEventListener('click', async () => {
+      const texto = $(`#msj-${b.dataset.copiar}`).textContent;
+      try {
+        await navigator.clipboard.writeText(texto);
+        avisar(`Mensaje de ${GRUPOS_TITULO[b.dataset.copiar]} copiado`);
+      } catch {
+        const rango = document.createRange();
+        rango.selectNodeContents($(`#msj-${b.dataset.copiar}`));
+        getSelection().removeAllRanges();
+        getSelection().addRange(rango);
+        avisar('Selecciónalo y copia con Ctrl+C', 'warn');
+      }
+    }));
+  } catch (err) { fallar(err); }
+}
+
+/* ==========================================================================
    VACANTES
    ========================================================================== */
 
@@ -1064,6 +1200,7 @@ async function cargarConfig() {
 function cambiarVista(nombre) {
   $$('.pest').forEach(b => b.classList.toggle('activa', b.dataset.vista === nombre));
   $$('.vista').forEach(v => v.classList.toggle('activa', v.id === `vista-${nombre}`));
+  if (nombre === 'publicar') cargarMatriz();
   if (nombre === 'vacantes') cargarVacantes();
   if (nombre === 'totales')  cargarTotales();
   if (nombre === 'personal') cargarPersonal();
@@ -1090,7 +1227,8 @@ async function iniciar() {
   estado.anio = hoy.getFullYear();
   estado.mes  = hoy.getMonth() + 1;
 
-  for (const id of ['#asig-fecha', '#fecha-publicacion', '#fecha-solicitudes', '#gen-desde', '#gen-hasta']) {
+  for (const id of ['#asig-fecha', '#fecha-publicacion', '#fecha-solicitudes',
+                    '#gen-desde', '#gen-hasta', '#pub-desde']) {
     $(id).value = hoyISO();
   }
   $('#periodo-totales').value = `${estado.anio}-${String(estado.mes).padStart(2, '0')}`;
@@ -1126,6 +1264,24 @@ async function iniciar() {
 
   // Asignar
   $('#btn-buscar-candidatos').addEventListener('click', buscarCandidatos);
+
+  // Publicar
+  $('#pub-desde').addEventListener('change', cargarMatriz);
+  $('#pub-dias').addEventListener('change', cargarMatriz);
+  $('#pub-dia-semana').addEventListener('change', cargarMensajesGrupo);
+  $('#pub-refrescar').addEventListener('click', cargarMensajesGrupo);
+  $('#pub-limpiar').addEventListener('click', async () => {
+    const desde = $('#pub-desde').value;
+    const dias = Number($('#pub-dias').value);
+    const hasta = new Date(new Date(desde + 'T12:00:00').getTime() + (dias - 1) * 864e5)
+      .toISOString().slice(0, 10);
+    if (!confirm(`¿Borrar todos los lugares capturados del ${desde} al ${hasta}?`)) return;
+    try {
+      const r = await enviar('/api/vacantes/limpiar', { desde, hasta });
+      avisar(`${r.borradas} registro(s) borrado(s)`);
+      await cargarMatriz();
+    } catch (err) { fallar(err); }
+  });
 
   // Vacantes
   $('#btn-leer-publicacion').addEventListener('click', leerPublicacion);
@@ -1174,6 +1330,7 @@ async function iniciar() {
   });
 
   await cargarCuadricula();
+  await cargarMatriz();
 
   if (estado.config.vacio) {
     avisar('Base vacía: usa «Cargar plantilla S-TWR agosto» en la pestaña Personal', 'warn', 9000);

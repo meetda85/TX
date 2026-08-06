@@ -19,7 +19,8 @@
   </div>
 
   <nav class="pestanas" id="pestanas">
-    <button class="pest activa" data-vista="cuadricula">Cuadrícula</button>
+    <button class="pest activa" data-vista="publicar">Publicar</button>
+    <button class="pest" data-vista="cuadricula">Cuadrícula</button>
     <button class="pest" data-vista="asignar">Asignar</button>
     <button class="pest" data-vista="vacantes">Vacantes</button>
     <button class="pest" data-vista="totales">Totales</button>
@@ -35,8 +36,47 @@
 
 <main>
 
+<!-- ================= PUBLICAR ================= -->
+<section class="vista activa" id="vista-publicar">
+  <div class="tarjeta">
+    <h2>1 · Cuántos lugares hay</h2>
+    <p class="nota">
+      Anota cuántos lugares de tiempo extra hay cada día, por grupo y por turno.
+      Puede haber varios el mismo día y para más de un grupo a la vez.
+      Deja en blanco donde no haya nada.
+    </p>
+    <div class="fila-controles">
+      <label>Desde <input type="date" id="pub-desde"></label>
+      <label>Cuántos días
+        <select id="pub-dias">
+          <option value="7">7 días</option>
+          <option value="14" selected>14 días</option>
+          <option value="21">21 días</option>
+          <option value="31">31 días</option>
+        </select>
+      </label>
+      <button class="btn" id="pub-limpiar">Vaciar este rango</button>
+      <span class="nota" id="pub-conteo" style="margin:0 0 8px auto"></span>
+    </div>
+    <div id="pub-matriz"></div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>2 · Mensajes para los grupos</h2>
+    <p class="nota">
+      Un mensaje por grupo, con sólo lo que a cada quien le toca. Copia y pega
+      tal cual en WhatsApp.
+    </p>
+    <div class="fila-controles">
+      <label class="check"><input type="checkbox" id="pub-dia-semana"> Incluir el día de la semana</label>
+      <button class="btn" id="pub-refrescar">Actualizar mensajes</button>
+    </div>
+    <div id="pub-mensajes" class="mensajes-grupo"></div>
+  </div>
+</section>
+
 <!-- ================= CUADRÍCULA ================= -->
-<section class="vista activa" id="vista-cuadricula">
+<section class="vista" id="vista-cuadricula">
   <div class="controles">
     <div class="grupo-mes">
       <button class="btn-nav" id="mes-ant">‹</button>

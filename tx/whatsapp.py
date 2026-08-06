@@ -139,11 +139,13 @@ class Mensaje:
 # 1. Publicación de disponibilidad
 # ---------------------------------------------------------------------------
 
-# "13 K", "14 C y K", "8 en C, K y O", "sábado 1 en C (4)"
+# "13 K", "14 C y K", "8 en C, K y O", "sábado 1 en C (4)", "12 en C (2) y K"
+# El cupo puede ir pegado a un turno en concreto, no sólo al final de la línea.
 _GRUPO_DIA = re.compile(
-    r"(?P<dia>\b\d{1,2}\b)\s*(?:en\s+)?(?P<turnos>(?:[CKOcko]\s*(?:[,y+]|\s|$)\s*)+)"
-    r"(?:\(\s*(?P<cupos>\d+)\s*\))?"
+    r"\b(?P<dia>\d{1,2})\s*(?:en\s+)?"
+    r"(?P<resto>[CKOcko]\s*(?:\(\s*\d+\s*\))?(?:\s*[,y+]?\s*[CKOcko]\s*(?:\(\s*\d+\s*\))?)*)"
 )
+_TURNO_CON_CUPO = re.compile(r"([CKOcko])\s*(?:\(\s*(\d+)\s*\))?")
 
 _ENCABEZADOS = re.compile(
     r"\b(tx|tex|tiempo extra)\b.{0,20}\b(disponible|dispo)\b", re.IGNORECASE
@@ -193,9 +195,8 @@ def parsear_disponibilidad(texto: str, referencia: date) -> list[Vacante]:
                 fecha = resolver_fecha(int(m.group("dia")), referencia)
             except ValueError:
                 continue
-            cupos = int(m.group("cupos")) if m.group("cupos") else 1
-            for pieza in re.split(r"[,y+\s]+", m.group("turnos")):
-                codigo = normalizar_turno(pieza)
+            for bruto, cupos_txt in _TURNO_CON_CUPO.findall(m.group("resto")):
+                codigo = normalizar_turno(bruto)
                 if not codigo:
                     continue
                 llave = (fecha, codigo, ubicacion, categoria_actual)
@@ -206,7 +207,7 @@ def parsear_disponibilidad(texto: str, referencia: date) -> list[Vacante]:
                     Vacante(
                         fecha=fecha,
                         turno=codigo,
-                        cupos=cupos,
+                        cupos=int(cupos_txt) if cupos_txt else 1,
                         ubicacion=ubicacion,
                         categoria=categoria_actual,
                     )
@@ -386,24 +387,90 @@ def generar_asignacion(items: list[dict], *, encabezado: str = "Asignación de t
     return "\n".join(lineas)
 
 
-def generar_publicacion(vacantes: list[dict]) -> str:
-    """Redacta el mensaje de 'TX disponible' a partir de las vacantes abiertas."""
-    por_dia: dict[date, list[str]] = {}
+#: Nombre del grupo de WhatsApp al que va cada categoría.
+GRUPOS = {
+    "SUPERVISOR": "Supervisores TWR MEX",
+    "ATCO": "ATCO's TWR MEX",
+    "AUX": "AUX's TWR MEX",
+}
+
+_DIAS_LARGOS = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+
+
+def _enumerar(piezas: list[str]) -> str:
+    """«C», «C y K», «C, K y O» — como lo escriben en los grupos."""
+    if len(piezas) == 1:
+        return piezas[0]
+    return ", ".join(piezas[:-1]) + " y " + piezas[-1]
+
+
+def generar_publicacion(
+    vacantes: list[dict],
+    *,
+    saludo: str = "Buen día, TX disponible:",
+    con_dia_semana: bool = False,
+) -> str:
+    """Redacta el mensaje de «TX disponible» de UN grupo.
+
+    Los cupos se anotan entre paréntesis sólo cuando hay más de un lugar,
+    igual que en los mensajes reales («sábado 1 en C (4)»).
+    """
+    por_dia: dict[date, dict[str, int]] = {}
     for v in vacantes:
         fecha = v["fecha"]
         if isinstance(fecha, str):
             fecha = date.fromisoformat(fecha)
-        por_dia.setdefault(fecha, []).append(v["turno"])
+        crudo = v.get("cupos")
+        cupos = 1 if crudo is None else int(crudo)   # ojo: 0 es un valor válido
+        if cupos <= 0:
+            continue
+        turnos = por_dia.setdefault(fecha, {})
+        turnos[v["turno"]] = turnos.get(v["turno"], 0) + cupos
 
-    lineas = ["Buen día, TX disponible:"]
+    if not por_dia:
+        return ""
+
+    lineas = [saludo] if saludo else []
     for fecha in sorted(por_dia):
-        codigos = sorted(set(por_dia[fecha]), key=lambda c: T.TRONCALES.index(c))
-        if len(codigos) == 1:
-            turnos_txt = codigos[0]
+        del_dia = [(c, por_dia[fecha][c]) for c in T.TRONCALES if por_dia[fecha].get(c)]
+        if not del_dia:
+            continue
+        etiqueta = f"{_DIAS_LARGOS[fecha.weekday()]} {fecha.day}" if con_dia_semana else str(fecha.day)
+
+        if all(cupos == 1 for _, cupos in del_dia):
+            # Todos con un lugar: en una sola línea, como «8 en C, K y O».
+            lineas.append(f"{etiqueta} en {_enumerar([c for c, _ in del_dia])}")
         else:
-            turnos_txt = ", ".join(codigos[:-1]) + " y " + codigos[-1]
-        lineas.append(f"{fecha.day} en {turnos_txt}")
+            # Hay cupos que anotar: una línea por turno, como «sábado 1 en C (4)».
+            for codigo, cupos in del_dia:
+                sufijo = f" ({cupos})" if cupos > 1 else ""
+                lineas.append(f"{etiqueta} en {codigo}{sufijo}")
     return "\n".join(lineas)
+
+
+def generar_publicaciones_por_grupo(
+    vacantes: list[dict], *, con_dia_semana: bool = False
+) -> list[dict]:
+    """Un mensaje por grupo de WhatsApp, listos para copiar y pegar."""
+    por_categoria: dict[str, list[dict]] = {}
+    for v in vacantes:
+        categoria = v.get("categoria") or "ATCO"
+        por_categoria.setdefault(categoria, []).append(v)
+
+    salida = []
+    for categoria in ("SUPERVISOR", "ATCO", "AUX"):
+        lote = por_categoria.get(categoria, [])
+        if not lote:
+            continue
+        salida.append(
+            {
+                "categoria": categoria,
+                "grupo": GRUPOS[categoria],
+                "mensaje": generar_publicacion(lote, con_dia_semana=con_dia_semana),
+                "lugares": sum(int(v.get("cupos") or 1) for v in lote),
+            }
+        )
+    return salida
 
 
 # ---------------------------------------------------------------------------
