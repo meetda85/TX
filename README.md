@@ -1,7 +1,7 @@
 # Asignación de Tiempo Extra — TWR MEX
 
-Sistema **local** para que el supervisor publique, controle y asigne tiempo
-extra, con la regla de días consecutivos aplicada automáticamente.
+Sistema **local** para publicar tiempo extra, anotar quién lo pidió y decidir a
+quién asignárselo, repartiendo parejo entre quienes menos horas llevan.
 
 Corre en tu propia computadora. No manda nada a internet, no necesita cuenta
 ni servidor: los datos viven en un archivo dentro de la carpeta `datos/`.
@@ -28,7 +28,75 @@ en máquinas con permisos restringidos y sin internet.
 
 ---
 
-## La regla que aplica
+## Cómo se usa: cuatro pasos
+
+El trabajo del día va en línea recta, y cada pantalla lleva a la siguiente.
+
+### 1 · Publicar
+
+Una rejilla de **días × (grupo × turno)** donde anotas cuántos lugares hay.
+Puede haber varios el mismo día y para más de un grupo a la vez. Pasa el cursor
+por una casilla y salen los botones **−** y **+**; también se teclea el número
+directo y las flechas ↑ ↓ mueven de casilla, como en una hoja de cálculo.
+
+Abajo salen **tres mensajes, uno por grupo de WhatsApp**, listos para copiar:
+
+```
+Supervisores TWR MEX      ATCO's TWR MEX           AUX's TWR MEX
+Buen día, TX disponible:  Buen día, TX disponible: Buen día, TX disponible:
+13 en K                   13 en K (3)              14 en K
+14 en C y K               14 en C (2)              16 en C (4)
+                          15 en C, K y O
+```
+
+Los cupos van entre paréntesis sólo cuando hay más de un lugar, y en cuanto un
+turno lleva cupo el día se desglosa renglón por renglón — así lo escriben en
+los grupos y así se relee sin ambigüedad.
+
+### 2 · Solicitudes
+
+Se capturan a mano, persona por persona: tecleas las siglas y luego lo que
+pidió, tal como te lo dijeron.
+
+```
+Siglas:  CE
+Pidió:   12 en C, 14 en C, 15 C y K
+```
+
+Se entiende igual `12c 14c 15 c y k`, y una lista de días con un turno al final
+(`11, 12 y 15 en K`). Al agregar, el cursor vuelve a las siglas para seguir con
+el siguiente. Cada solicitud queda como una ficha que se puede quitar.
+
+Pegar el mensaje del grupo completo también funciona, pero está en *Más…*: no
+se puede depender de que el mensaje llegue en un formato concreto cuando varias
+personas usan el sistema.
+
+### 3 · Horas
+
+Sale la lista de **quienes pidieron algo** y capturas las horas que llevan
+**trabajadas** al día de hoy, tal como vengan del conteo. Con Enter saltas al
+siguiente. Arriba se avisa de quién falta.
+
+Las horas son sólo las trabajadas: el sistema **no** les suma lo que está por
+asignarse, porque todavía no se trabaja.
+
+### 4 · Asignar
+
+Lugar por lugar, quién lo pidió **ordenado de menos a más horas trabajadas**.
+El primero de cada lista es la sugerencia. Quien no tenga horas capturadas va
+al final, porque no hay con qué compararlo.
+
+Si hay horario cargado, se avisa de los choques (que ya trae ese turno, que
+juntaría dos turnos el mismo día, que serían tres jornadas dobles seguidas).
+El aviso no bloquea: la decisión es del supervisor.
+
+Al final, el mensaje de asignación listo para copiar con su `Pls ack`.
+
+---
+
+## La regla de los tres días
+
+Cuando hay horario base cargado (pestaña *Personal*), el sistema vigila:
 
 > **No puede haber tres días consecutivos de jornada doble.**
 
@@ -73,29 +141,9 @@ Los turnos que se publican como tiempo extra son **C**, **K** y **O**.
 
 ---
 
-## Las pantallas
+## Otras pantallas
 
-### Publicar
-
-El punto de partida del día. Una rejilla de **días × (grupo × turno)** donde
-anotas cuántos lugares de tiempo extra hay. Puede haber varios el mismo día y
-para más de un grupo a la vez; las flechas ↑↓ mueven el cursor sin soltar el
-teclado.
-
-Abajo salen **tres mensajes, uno por grupo de WhatsApp**, con sólo lo que a
-cada quien le toca y listos para copiar y pegar:
-
-```
-Supervisores TWR MEX      ATCO's TWR MEX          AUX's TWR MEX
-Buen día, TX disponible:  Buen día, TX disponible: Buen día, TX disponible:
-13 en K                   13 en K (3)              14 en K
-14 en C y K               14 en C (2)              16 en C (4)
-                          15 en C, K y O
-```
-
-Los cupos van entre paréntesis sólo cuando hay más de un lugar, y en cuanto un
-turno lleva cupo el día se desglosa renglón por renglón — así lo escriben en
-los grupos y así se relee sin ambigüedad.
+Fuera de los cuatro pasos, bajo **Más…** y **Personal**:
 
 ### Cuadrícula
 
@@ -114,33 +162,6 @@ quitar una asignación. El evaluador corre en vivo mientras eliges el turno.
 Hay cuatro tamaños de celda —hasta *Enorme*— para cuando la cuadrícula se
 consulta de lejos o en pantalla compartida. El filtro «Sólo quien trae TX»
 deja únicamente a los involucrados.
-
-### Asignar
-
-Eliges día, turno y ubicación, y te muestra a **todo el personal ordenado**:
-primero quien sí puede, y dentro de cada grupo **quien menos tiempo extra
-lleva en el mes**, para que el reparto salga parejo. A cada quien le pone su
-semáforo con el motivo en texto claro.
-
-En **«Quiénes lo pidieron»** puedes pegar el mensaje del grupo tal cual: el
-sistema saca las siglas y reduce la lista a esa gente. Cada renglón trae una
-casilla **TX acum.** donde tecleas el acumulado tal como venga del Excel en
-ese momento; al salir del campo la lista se reordena sola.
-
-Ése es el uso de todos los días: no hace falta tener sincronizado el conteo
-completo, sólo el de quienes solicitaron —diez o quince personas— y el número
-siempre está fresco.
-
-### Vacantes
-
-Pegas el mensaje de «TX disponible» tal como lo mandas al grupo y el sistema lo
-convierte en vacantes. Entiende los formatos que se usan hoy:
-
-```
-Buen día TX disponible :        Tx disponible:              9 O
-Spvr                            Jueves 6 en C y K           10 C y K
-13 K, 14 C y K, 15 C y K        sábado 1 en C (4)           11 C
-```
 
 ### Totales
 
@@ -176,6 +197,8 @@ la casilla; después les completas el nombre en la pestaña Personal.
 Alta y edición de personas, e importación del horario mensual desde el Excel
 que ya generan (`HORARIO DE TRABAJO S-TWR`). Detecta sola la fila de días y la
 columna de siglas, y te enseña una previa antes de escribir nada.
+
+---
 
 ---
 
@@ -226,7 +249,7 @@ tx/
   semilla.py    Horario de agosto 2026 de S-TWR para arrancar
   web/          Interfaz (HTML, CSS y JavaScript sin frameworks)
 datos/          Base de datos local (no se versiona)
-pruebas/        136 pruebas automatizadas
+pruebas/        161 pruebas automatizadas
 ```
 
 ## Pruebas

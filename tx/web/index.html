@@ -19,13 +19,12 @@
   </div>
 
   <nav class="pestanas" id="pestanas">
-    <button class="pest activa" data-vista="publicar">Publicar</button>
-    <button class="pest" data-vista="cuadricula">Cuadrícula</button>
-    <button class="pest" data-vista="asignar">Asignar</button>
-    <button class="pest" data-vista="vacantes">Vacantes</button>
-    <button class="pest" data-vista="totales">Totales</button>
-    <button class="pest" data-vista="mensajes">Mensajes</button>
-    <button class="pest" data-vista="personal">Personal</button>
+    <button class="pest activa" data-vista="publicar"><i>1</i> Publicar</button>
+    <button class="pest" data-vista="solicitudes"><i>2</i> Solicitudes</button>
+    <button class="pest" data-vista="horas"><i>3</i> Horas</button>
+    <button class="pest" data-vista="sugerencia"><i>4</i> Asignar</button>
+    <button class="pest secundaria" data-vista="personal">Personal</button>
+    <button class="pest secundaria" data-vista="mas">Más…</button>
   </nav>
 
   <div class="acciones-barra">
@@ -77,6 +76,117 @@
       <button class="btn" id="pub-refrescar">Actualizar mensajes</button>
     </div>
     <div id="pub-mensajes" class="mensajes-grupo"></div>
+
+    <div class="pie-paso">
+      <button class="btn fuerte grande" data-ir="solicitudes">
+        Siguiente · anotar quién pidió →
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 2 · SOLICITUDES ================= -->
+<section class="vista" id="vista-solicitudes">
+  <div class="panel-doble">
+    <div class="tarjeta">
+      <h2>Anota lo que pidió cada quien</h2>
+      <p class="nota">
+        Escribe las siglas y luego los días con su turno, como te los dijeron.
+        Se entiende igual <code>12 en C, 14 en C, 15 C y K</code> que
+        <code>12c 14c 15 c y k</code>.
+      </p>
+      <label class="linea-vertical">Siglas
+        <input type="text" id="sol-siglas" maxlength="3" placeholder="CE" autocomplete="off"
+               list="lista-siglas" class="siglas-grande">
+      </label>
+      <datalist id="lista-siglas"></datalist>
+      <p class="nota nota-apretada" id="sol-quien"></p>
+      <label class="linea-vertical">Qué pidió
+        <textarea id="sol-texto" rows="3" placeholder="12 en C, 14 en C, 15 C y K"></textarea>
+      </label>
+      <button class="btn primario" id="sol-agregar">Agregar</button>
+      <p class="nota" style="margin-top:12px">
+        Al agregar, el cursor vuelve a las siglas para seguir con el siguiente.
+      </p>
+    </div>
+
+    <div class="tarjeta crece">
+      <h2>Solicitudes capturadas</h2>
+      <p class="nota" id="sol-conteo"></p>
+      <div id="sol-lista"></div>
+      <div class="pie-paso">
+        <button class="btn" data-ir="publicar">← Volver a publicar</button>
+        <button class="btn fuerte grande" data-ir="horas">
+          Siguiente · anotar las horas →
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 3 · HORAS ================= -->
+<section class="vista" id="vista-horas">
+  <div class="tarjeta">
+    <h2>Horas que lleva cada quien</h2>
+    <p class="nota">
+      Sólo quienes pidieron algo. Anota las horas que llevan <b>trabajadas</b>
+      al día de hoy, tal como vengan del conteo. El sistema no les suma lo que
+      está por asignarse.
+    </p>
+    <div class="fila-controles">
+      <label>Periodo del conteo <input type="month" id="horas-periodo"></label>
+      <span class="nota" id="horas-aviso" style="margin:0 0 8px auto"></span>
+    </div>
+    <div id="horas-tabla"></div>
+    <div class="pie-paso">
+      <button class="btn" data-ir="solicitudes">← Volver a solicitudes</button>
+      <button class="btn fuerte grande" data-ir="sugerencia">
+        Siguiente · ver la sugerencia →
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 4 · SUGERENCIA ================= -->
+<section class="vista" id="vista-sugerencia">
+  <div class="tarjeta">
+    <h2>A quién asignarle</h2>
+    <p class="nota">
+      Lugar por lugar, quién lo pidió ordenado de <b>menos a más horas
+      trabajadas</b>. El primero de cada lista es la sugerencia; la decisión
+      sigue siendo tuya.
+    </p>
+    <div class="fila-controles">
+      <label class="check"><input type="checkbox" id="sug-pendientes"> Sólo lugares sin cubrir</label>
+      <span class="nota" id="sug-conteo" style="margin:0 0 8px auto"></span>
+    </div>
+    <div id="sug-lista"></div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Mensajes de asignación</h2>
+    <p class="nota">Uno por grupo, listos para copiar y pegar con su acuse.</p>
+    <div id="sug-mensajes" class="mensajes-grupo"></div>
+    <div class="pie-paso">
+      <button class="btn" data-ir="horas">← Volver a las horas</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MÁS ================= -->
+<section class="vista" id="vista-mas">
+  <div class="tarjeta">
+    <h2>Herramientas adicionales</h2>
+    <p class="nota">
+      Cosas que no hacen falta todos los días pero ahí están cuando las necesites.
+    </p>
+    <div class="fila-controles">
+      <button class="btn" data-ir="cuadricula">Cuadrícula del mes</button>
+      <button class="btn" data-ir="totales">Totales e importación del conteo</button>
+      <button class="btn" data-ir="asignar">Asignación libre</button>
+      <button class="btn" data-ir="vacantes">Leer mensajes pegados</button>
+      <button class="btn" data-ir="mensajes">Histórico de WhatsApp</button>
+    </div>
   </div>
 </section>
 

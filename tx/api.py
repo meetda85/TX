@@ -368,8 +368,10 @@ def candidatos(cx: sqlite3.Connection, params: dict) -> dict:
             ubicacion=ubicacion,
             max_consecutivas=tope,
         )
+        # Sólo cuentan las horas ya TRABAJADAS que se capturaron a mano. Lo que
+        # el sistema tenga asignado y todavía no se trabaja no se suma.
         total = totales_manuales.get(persona["id"])
-        acumulado = total["horas"] if total else horas_sistema.get(persona["id"], 0.0)
+        acumulado = total["horas"] if total else None
         dia = dias.get(fecha)
         filas.append(
             {
@@ -386,8 +388,17 @@ def candidatos(cx: sqlite3.Connection, params: dict) -> dict:
         )
 
     orden_nivel = {reglas.NIVEL_OK: 0, reglas.NIVEL_ADVERTENCIA: 1, reglas.NIVEL_PROHIBIDO: 2}
-    # Primero quien sí puede, y dentro de ellos quien menos TX lleva: reparto parejo.
-    filas.sort(key=lambda f: (orden_nivel[f["nivel"]], f["acumulado_horas"], f["iniciales"]))
+    # Primero quien sí puede, y dentro de ellos quien menos TX lleva: reparto
+    # parejo. Quien no tenga horas capturadas va al final de su grupo, porque
+    # no hay con qué compararlo.
+    filas.sort(
+        key=lambda f: (
+            orden_nivel[f["nivel"]],
+            f["acumulado_horas"] is None,
+            f["acumulado_horas"] if f["acumulado_horas"] is not None else 0,
+            f["iniciales"],
+        )
+    )
 
     return {
         "fecha": fecha.isoformat(),
@@ -656,6 +667,261 @@ def publicaciones(cx: sqlite3.Connection, params: dict) -> dict:
         "hasta": hasta.isoformat(),
         "mensajes": whatsapp.generar_publicaciones_por_grupo(vacantes, con_dia_semana=con_dia),
         "total_lugares": sum(int(v["cupos"] or 1) for v in vacantes),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Paso 2 · Solicitudes (captura manual, persona por persona)
+# ---------------------------------------------------------------------------
+
+
+def agregar_peticion(cx: sqlite3.Connection, cuerpo: dict) -> dict:
+    """Registra lo que pidió una persona a partir de un texto suelto.
+
+    El supervisor teclea las siglas y luego «12 en C, 14 en C, 15 C y K».
+    """
+    iniciales = (cuerpo.get("iniciales") or "").strip().upper()
+    if not iniciales:
+        raise ErrorPeticion("Escribe las siglas de quien pidió")
+
+    persona = db.persona_por_iniciales(cx, iniciales)
+    if persona is None:
+        raise ErrorPeticion(
+            f"No hay nadie registrado con las siglas {iniciales}. "
+            "Puedes darlo de alta en la pestaña Personal."
+        )
+
+    texto = (cuerpo.get("texto") or "").strip()
+    if not texto:
+        raise ErrorPeticion("Escribe qué días y turnos pidió")
+
+    referencia = _fecha(cuerpo.get("referencia") or date.today().isoformat(), "referencia")
+    halladas = whatsapp.parsear_solicitudes(texto, referencia)
+    if not halladas:
+        raise ErrorPeticion(
+            f"No entendí «{texto}». Escríbelo como «12 en C, 14 en C, 15 C y K»."
+        )
+
+    for p in halladas:
+        db.agregar_peticion(cx, persona["id"], p.fecha, p.turno)
+    cx.commit()
+
+    return {
+        "ok": True,
+        "iniciales": persona["iniciales"],
+        "nombre": persona["nombre"],
+        "categoria": persona["categoria"],
+        "agregadas": [{"fecha": p.fecha.isoformat(), "turno": p.turno} for p in halladas],
+    }
+
+
+def _ventana(params_o_cuerpo: dict, clave_desde: str = "desde") -> tuple[date, date]:
+    """Rango de trabajo; por omisión, de hoy a treinta días."""
+    def valor(k):
+        v = params_o_cuerpo.get(k)
+        return v[0] if isinstance(v, list) else v
+
+    hoy = date.today()
+    desde = _fecha(valor(clave_desde), clave_desde) if valor(clave_desde) else hoy
+    hasta = _fecha(valor("hasta"), "hasta") if valor("hasta") else desde + timedelta(days=30)
+    return desde, hasta
+
+
+def listar_peticiones(cx: sqlite3.Connection, params: dict) -> dict:
+    desde, hasta = _ventana(params)
+    filas = db.peticiones(cx, desde, hasta)
+
+    por_persona: dict[int, dict] = {}
+    for f in filas:
+        entrada = por_persona.setdefault(
+            f["persona_id"],
+            {
+                "persona_id": f["persona_id"],
+                "iniciales": f["iniciales"],
+                "nombre": f["nombre"],
+                "categoria": f["categoria"],
+                "peticiones": [],
+            },
+        )
+        entrada["peticiones"].append(
+            {"id": f["id"], "fecha": f["fecha"], "turno": f["turno"]}
+        )
+
+    orden = {c: i for i, c in enumerate(T.CATEGORIAS)}
+    gente = sorted(
+        por_persona.values(),
+        key=lambda p: (orden.get(p["categoria"], 99), p["iniciales"]),
+    )
+    return {
+        "desde": desde.isoformat(),
+        "hasta": hasta.isoformat(),
+        "personas": gente,
+        "total_personas": len(gente),
+        "total_peticiones": len(filas),
+    }
+
+
+def borrar_peticion(cx: sqlite3.Connection, cuerpo: dict) -> dict:
+    if cuerpo.get("id"):
+        db.borrar_peticion(cx, int(cuerpo["id"]))
+        return {"ok": True}
+    if cuerpo.get("persona_id"):
+        desde, hasta = _ventana(cuerpo)
+        n = db.borrar_peticiones_de(cx, int(cuerpo["persona_id"]), desde, hasta)
+        return {"ok": True, "borradas": n}
+    raise ErrorPeticion("Falta el id o la persona")
+
+
+# ---------------------------------------------------------------------------
+# Paso 3 · Resumen con las horas trabajadas
+# ---------------------------------------------------------------------------
+
+
+def resumen_solicitantes(cx: sqlite3.Connection, params: dict) -> dict:
+    """Quiénes pidieron y cuántas horas llevan, para capturarlas.
+
+    Las horas son SÓLO las trabajadas, tal como vienen del conteo. El sistema
+    nunca les suma lo que está por asignarse.
+    """
+    desde, hasta = _ventana(params)
+    periodo = params.get("periodo", [f"{desde.year:04d}-{desde.month:02d}"])
+    periodo = periodo[0] if isinstance(periodo, list) else periodo
+
+    filas = db.peticiones(cx, desde, hasta)
+    manuales = db.totales(cx, periodo)
+
+    por_persona: dict[int, dict] = {}
+    for f in filas:
+        entrada = por_persona.setdefault(
+            f["persona_id"],
+            {
+                "persona_id": f["persona_id"],
+                "iniciales": f["iniciales"],
+                "nombre": f["nombre"],
+                "categoria": f["categoria"],
+                "cuantas": 0,
+                "dias": [],
+                "horas": None,
+            },
+        )
+        entrada["cuantas"] += 1
+        entrada["dias"].append(f"{date.fromisoformat(f['fecha']).day}{f['turno']}")
+
+    for entrada in por_persona.values():
+        total = manuales.get(entrada["persona_id"])
+        entrada["horas"] = total["horas"] if total else None
+
+    orden = {c: i for i, c in enumerate(T.CATEGORIAS)}
+    gente = sorted(
+        por_persona.values(),
+        key=lambda p: (orden.get(p["categoria"], 99), p["iniciales"]),
+    )
+    return {
+        "desde": desde.isoformat(),
+        "hasta": hasta.isoformat(),
+        "periodo": periodo,
+        "personas": gente,
+        "sin_horas": [p["iniciales"] for p in gente if p["horas"] is None],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Paso 4 · Sugerencia de a quién asignarle
+# ---------------------------------------------------------------------------
+
+
+def sugerencias(cx: sqlite3.Connection, params: dict) -> dict:
+    """Por cada lugar publicado, quién lo pidió, de menos a más horas.
+
+    El orden usa únicamente las horas trabajadas capturadas: lo que se va
+    asignando en esta misma sesión no se le suma a nadie.
+    """
+    desde, hasta = _ventana(params)
+    periodo = params.get("periodo", [f"{desde.year:04d}-{desde.month:02d}"])
+    periodo = periodo[0] if isinstance(periodo, list) else periodo
+
+    manuales = db.totales(cx, periodo)
+    horas_de = {pid: fila["horas"] for pid, fila in manuales.items()}
+
+    pedidos: dict[tuple[str, str], list[sqlite3.Row]] = {}
+    for f in db.peticiones(cx, desde, hasta):
+        pedidos.setdefault((f["fecha"], f["turno"]), []).append(f)
+
+    asignados: dict[tuple[str, str], set[str]] = {}
+    for a in cx.execute(
+        "SELECT a.fecha, a.turno, p.iniciales, p.id AS pid FROM asignaciones a "
+        "JOIN personas p ON p.id = a.persona_id WHERE a.fecha BETWEEN ? AND ?",
+        (desde.isoformat(), hasta.isoformat()),
+    ).fetchall():
+        asignados.setdefault((a["fecha"], a["turno"]), set()).add(a["iniciales"])
+
+    lugares = []
+    for v in db.vacantes(cx, desde):
+        if v["estado"] != "ABIERTA" or date.fromisoformat(v["fecha"]) > hasta:
+            continue
+        categoria = v["categoria"] or "ATCO"
+        llave = (v["fecha"], v["turno"])
+        ya = asignados.get(llave, set())
+
+        candidatos = []
+        for f in pedidos.get(llave, []):
+            if f["categoria"] != categoria:
+                continue
+            # Si hay horario cargado, se avisa de los choques; si no lo hay,
+            # el evaluador simplemente no encuentra nada que objetar.
+            evaluacion = reglas.evaluar(
+                date.fromisoformat(v["fecha"]),
+                v["turno"],
+                db.panorama(cx, f["persona_id"], date.fromisoformat(v["fecha"]), margen=5),
+                max_consecutivas=db.max_consecutivas(cx),
+            )
+            candidatos.append(
+                {
+                    "persona_id": f["persona_id"],
+                    "iniciales": f["iniciales"],
+                    "nombre": f["nombre"],
+                    "horas": horas_de.get(f["persona_id"]),
+                    "asignado": f["iniciales"] in ya,
+                    "nivel": evaluacion.nivel,
+                    "aviso": (
+                        evaluacion.resumen
+                        if evaluacion.nivel != reglas.NIVEL_OK
+                        else None
+                    ),
+                }
+            )
+        # Menos horas primero. Quien no tenga horas capturadas va al final,
+        # porque no hay con qué compararlo.
+        candidatos.sort(
+            key=lambda c: (c["horas"] is None, c["horas"] if c["horas"] is not None else 0,
+                           c["iniciales"])
+        )
+
+        lugares.append(
+            {
+                "fecha": v["fecha"],
+                "dia": date.fromisoformat(v["fecha"]).day,
+                "dow": _DOW_LARGO[date.fromisoformat(v["fecha"]).weekday()],
+                "turno": v["turno"],
+                "categoria": categoria,
+                "grupo": whatsapp.GRUPOS.get(categoria, categoria),
+                "cupos": v["cupos"],
+                "asignados": sorted(ya),
+                "libres": max(0, int(v["cupos"] or 0) - len(ya)),
+                "candidatos": candidatos,
+                "sin_solicitudes": not candidatos,
+            }
+        )
+
+    lugares.sort(key=lambda l: (l["fecha"], T.TRONCALES.index(l["turno"]), l["categoria"]))
+
+    return {
+        "desde": desde.isoformat(),
+        "hasta": hasta.isoformat(),
+        "periodo": periodo,
+        "lugares": lugares,
+        "total_lugares": sum(int(l["cupos"] or 0) for l in lugares),
+        "total_asignados": sum(len(l["asignados"]) for l in lugares),
     }
 
 
@@ -996,6 +1262,9 @@ GET = {
     "/api/vacantes": listar_vacantes,
     "/api/vacantes/matriz": matriz_vacantes,
     "/api/publicaciones": publicaciones,
+    "/api/peticiones": listar_peticiones,
+    "/api/resumen": resumen_solicitantes,
+    "/api/sugerencias": sugerencias,
     "/api/totales": listar_totales,
 }
 
@@ -1010,6 +1279,8 @@ POST = {
     "/api/asignaciones/acuse": acusar,
     "/api/vacantes/crear": crear_vacantes,
     "/api/vacantes/cupos": fijar_cupos,
+    "/api/peticiones/agregar": agregar_peticion,
+    "/api/peticiones/borrar": borrar_peticion,
     "/api/vacantes/limpiar": limpiar_vacantes,
     "/api/vacantes/borrar": borrar_vacante,
     "/api/solicitudes": registrar_solicitudes,

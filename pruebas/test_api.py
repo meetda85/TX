@@ -158,12 +158,48 @@ class EscenarioDeLaTorre(BaseAPI):
         # Los bloqueados van al final de la lista
         self.assertEqual(datos["candidatos"][-1]["nivel"], "PROHIBIDO")
 
-    def test_los_candidatos_priorizan_a_quien_menos_tx_lleva(self):
-        self.post("/api/asignaciones", persona_id=self.gh, fecha="2026-08-08", turno="K")
+    def test_dentro_de_cada_nivel_manda_quien_menos_horas_lleva(self):
+        """Primero quién SÍ puede; ya dentro de ese grupo, quién menos lleva.
+
+        Las horas son las trabajadas que se capturaron, nada más.
+        """
+        for siglas, horas in (("GH", 300), ("KB", 100), ("EZ", 200),
+                              ("HR", 50), ("CE", 250)):
+            self.post("/api/totales/uno", persona_id=self.id_de(siglas),
+                      periodo="2026-08", horas=horas)
+
         datos = self.get("/api/candidatos", fecha="2026-08-12", turno="K")
-        disponibles = [c for c in datos["candidatos"] if c["nivel"] == "OK"]
-        acumulados = [c["acumulado_horas"] for c in disponibles]
-        self.assertEqual(acumulados, sorted(acumulados))
+
+        # El nivel manda: los niveles nunca retroceden al recorrer la lista.
+        rango = {"OK": 0, "ADVERTENCIA": 1, "PROHIBIDO": 2}
+        niveles = [rango[c["nivel"]] for c in datos["candidatos"]]
+        self.assertEqual(niveles, sorted(niveles))
+
+        # Y dentro de cada nivel, las horas van de menos a más.
+        for nivel in ("OK", "ADVERTENCIA", "PROHIBIDO"):
+            horas = [c["acumulado_horas"] for c in datos["candidatos"]
+                     if c["nivel"] == nivel and c["acumulado_horas"] is not None]
+            self.assertEqual(horas, sorted(horas), f"desordenado en {nivel}")
+
+    def test_quien_no_tiene_horas_capturadas_va_al_final_de_su_nivel(self):
+        for siglas in ("GH", "KB", "EZ", "HR", "CE", "MR"):
+            self.post("/api/totales/uno", persona_id=self.id_de(siglas),
+                      periodo="2026-08", horas=100)
+
+        datos = self.get("/api/candidatos", fecha="2026-08-12", turno="K")
+        for nivel in ("OK", "ADVERTENCIA", "PROHIBIDO"):
+            grupo = [c["acumulado_horas"] is None
+                     for c in datos["candidatos"] if c["nivel"] == nivel]
+            # Los False (con horas) van antes que los True (sin horas).
+            self.assertEqual(grupo, sorted(grupo), f"desordenado en {nivel}")
+
+    def test_lo_asignado_no_se_suma_a_las_horas(self):
+        """Sólo cuentan las horas ya trabajadas; el TX nuevo aún no lo es."""
+        self.post("/api/totales/uno", persona_id=self.gh, periodo="2026-08", horas=50)
+        self.post("/api/asignaciones", persona_id=self.gh, fecha="2026-08-09", turno="K")
+        datos = self.get("/api/candidatos", fecha="2026-08-12", turno="K")
+        gh = next(c for c in datos["candidatos"] if c["id"] == self.gh)
+        self.assertEqual(gh["acumulado_horas"], 50)
 
 
 class Totales(BaseAPI):

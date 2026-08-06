@@ -83,6 +83,17 @@ CREATE TABLE IF NOT EXISTS totales (
     PRIMARY KEY (persona_id, periodo)
 );
 
+-- Lo que cada quien pidió. Se captura a mano, persona por persona: el
+-- supervisor teclea las siglas y luego «12 en C, 14 en C, 15 C y K».
+CREATE TABLE IF NOT EXISTS peticiones (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    persona_id INTEGER NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+    fecha      TEXT    NOT NULL,
+    turno      TEXT    NOT NULL,
+    creada     TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+    UNIQUE (persona_id, fecha, turno)
+);
+
 -- Horas de tiempo extra conocidas por día pero SIN saber qué turno fue.
 -- Es lo que se puede recuperar del Excel de conteo, que guarda horas por día
 -- y no el turno. Sirve para la regla: 14 horas o más en un día es jornada
@@ -100,6 +111,7 @@ CREATE TABLE IF NOT EXISTS ajustes (
     valor TEXT NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_peticiones_fecha   ON peticiones(fecha);
 CREATE INDEX IF NOT EXISTS idx_horas_hist_fecha   ON horas_historicas(fecha);
 CREATE INDEX IF NOT EXISTS idx_horario_fecha      ON horario(fecha);
 CREATE INDEX IF NOT EXISTS idx_asignaciones_fecha ON asignaciones(fecha);
@@ -430,6 +442,42 @@ def vacantes(cx: sqlite3.Connection, desde: date | None = None) -> list[sqlite3.
             (desde.isoformat(),),
         ).fetchall()
     return cx.execute("SELECT * FROM vacantes ORDER BY fecha, turno").fetchall()
+
+
+# ---------------------------------------------------------------------------
+# Peticiones del personal (captura manual, persona por persona)
+# ---------------------------------------------------------------------------
+
+
+def agregar_peticion(cx: sqlite3.Connection, persona_id: int, fecha: date, turno: str) -> None:
+    cx.execute(
+        "INSERT OR IGNORE INTO peticiones (persona_id, fecha, turno) VALUES (?, ?, ?)",
+        (persona_id, fecha.isoformat(), turno),
+    )
+
+
+def borrar_peticion(cx: sqlite3.Connection, peticion_id: int) -> None:
+    cx.execute("DELETE FROM peticiones WHERE id = ?", (peticion_id,))
+    cx.commit()
+
+
+def borrar_peticiones_de(cx: sqlite3.Connection, persona_id: int, desde: date, hasta: date) -> int:
+    cur = cx.execute(
+        "DELETE FROM peticiones WHERE persona_id = ? AND fecha BETWEEN ? AND ?",
+        (persona_id, desde.isoformat(), hasta.isoformat()),
+    )
+    cx.commit()
+    return cur.rowcount
+
+
+def peticiones(cx: sqlite3.Connection, desde: date, hasta: date) -> list[sqlite3.Row]:
+    return cx.execute(
+        "SELECT p.*, per.iniciales, per.nombre, per.categoria "
+        "FROM peticiones p JOIN personas per ON per.id = p.persona_id "
+        "WHERE p.fecha BETWEEN ? AND ? "
+        "ORDER BY per.categoria, per.iniciales, p.fecha, p.turno",
+        (desde.isoformat(), hasta.isoformat()),
+    ).fetchall()
 
 
 def solicitar(cx: sqlite3.Connection, vacante_id: int, persona_id: int) -> None:

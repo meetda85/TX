@@ -524,11 +524,10 @@ function pintarCandidatos(datos) {
         <div class="n">${escapar(nombreCorto(c.nombre))}</div>
         <div class="r">${escapar(c.base ? `Base: ${c.base} — ` : '')}${escapar(c.resumen)}</div>
       </div>
-      <label class="acum-editable" title="Acumulado de tiempo extra del mes">
-        <span>TX acum.</span>
+      <label class="acum-editable" title="Horas de tiempo extra ya trabajadas">
+        <span>Horas</span>
         <input type="number" step="0.5" min="0" data-total="${c.id}"
-               value="${c.acumulado_es_manual ? c.acumulado_horas : ''}"
-               placeholder="${(c.acumulado_horas || 0).toFixed(1)}"
+               value="${c.acumulado_horas ?? ''}" placeholder="—"
                class="${c.acumulado_es_manual ? 'capturado' : ''}">
       </label>
       <button class="btn ${c.nivel === 'PROHIBIDO' ? 'peligro' : 'primario'} chico"
@@ -769,6 +768,278 @@ async function cargarMensajesGrupo() {
         avisar('Selecciónalo y copia con Ctrl+C', 'warn');
       }
     }));
+  } catch (err) { fallar(err); }
+}
+
+/* ==========================================================================
+   2 · SOLICITUDES — captura manual, persona por persona
+   ========================================================================== */
+
+/** Rango de trabajo: el mismo que se está publicando. */
+function ventanaTrabajo() {
+  const desde = $('#pub-desde').value || hoyISO();
+  const dias = Number($('#pub-dias').value || 14);
+  const hasta = new Date(new Date(desde + 'T12:00:00').getTime() + (dias - 1) * 864e5)
+    .toISOString().slice(0, 10);
+  return { desde, hasta };
+}
+
+async function cargarSiglasConocidas() {
+  try {
+    const datos = await obtener('/api/personas');
+    $('#lista-siglas').innerHTML = datos.personas
+      .map(p => `<option value="${escapar(p.iniciales)}">${escapar(p.nombre)}</option>`).join('');
+    estado.personas = datos.personas;
+  } catch (err) { fallar(err); }
+}
+
+function mostrarQuienEs() {
+  const siglas = $('#sol-siglas').value.trim().toUpperCase();
+  const quien = (estado.personas || []).find(p => p.iniciales.toUpperCase() === siglas);
+  const nodo = $('#sol-quien');
+  if (!siglas) { nodo.textContent = ''; return; }
+  if (quien) {
+    nodo.innerHTML = `<b>${escapar(quien.nombre)}</b> · ${quien.categoria}`;
+    nodo.style.color = '';
+  } else {
+    nodo.textContent = `No hay nadie con las siglas ${siglas}. Dalo de alta en Personal.`;
+    nodo.style.color = 'var(--alto)';
+  }
+}
+
+async function agregarSolicitud() {
+  const siglas = $('#sol-siglas').value.trim().toUpperCase();
+  const texto = $('#sol-texto').value.trim();
+  if (!siglas) { avisar('Escribe las siglas', 'warn'); $('#sol-siglas').focus(); return; }
+  if (!texto) { avisar('Escribe qué días pidió', 'warn'); $('#sol-texto').focus(); return; }
+
+  try {
+    const r = await enviar('/api/peticiones/agregar', {
+      iniciales: siglas, texto, referencia: ventanaTrabajo().desde,
+    });
+    const resumen = r.agregadas
+      .map(a => `${Number(a.fecha.slice(8))}${a.turno}`).join(', ');
+    avisar(`${r.iniciales}: ${resumen}`);
+    $('#sol-siglas').value = '';
+    $('#sol-texto').value = '';
+    $('#sol-quien').textContent = '';
+    $('#sol-siglas').focus();
+    await cargarSolicitudes();
+  } catch (err) { fallar(err); }
+}
+
+async function cargarSolicitudes() {
+  const { desde, hasta } = ventanaTrabajo();
+  try {
+    const datos = await obtener('/api/peticiones', { desde, hasta });
+    $('#sol-conteo').textContent = datos.total_personas
+      ? `${datos.total_personas} persona(s), ${datos.total_peticiones} solicitud(es)`
+      : 'Todavía no hay solicitudes capturadas.';
+
+    const cont = $('#sol-lista');
+    if (!datos.personas.length) {
+      cont.innerHTML = '<p class="vacio">Captura la primera a la izquierda.</p>';
+      return;
+    }
+
+    const titulos = { SUPERVISOR: 'Supervisores', ATCO: 'ATCO (TWR)', AUX: 'Auxiliares' };
+    const porCategoria = {};
+    for (const p of datos.personas) (porCategoria[p.categoria] ||= []).push(p);
+
+    cont.innerHTML = GRUPOS_ORDEN.filter(g => porCategoria[g]).map(g => `
+      <div class="grupo-solicitudes">
+        <h3>${titulos[g]} · ${porCategoria[g].length}</h3>
+        ${porCategoria[g].map(p => `
+          <div class="persona-solicitud">
+            <span class="siglas">${escapar(p.iniciales)}</span>
+            <div class="fichas">
+              ${p.peticiones.map(q => `
+                <span class="ficha t-${q.turno}">
+                  ${Number(q.fecha.slice(8))} ${q.turno}
+                  <button data-quitar-pet="${q.id}" title="Quitar" aria-label="Quitar">×</button>
+                </span>`).join('')}
+            </div>
+          </div>`).join('')}
+      </div>`).join('');
+
+    $$('[data-quitar-pet]', cont).forEach(b => b.addEventListener('click', async () => {
+      try {
+        await enviar('/api/peticiones/borrar', { id: Number(b.dataset.quitarPet) });
+        await cargarSolicitudes();
+      } catch (err) { fallar(err); }
+    }));
+  } catch (err) { fallar(err); }
+}
+
+/* ==========================================================================
+   3 · HORAS TRABAJADAS
+   ========================================================================== */
+
+async function cargarHoras() {
+  const { desde, hasta } = ventanaTrabajo();
+  const periodo = $('#horas-periodo').value || desde.slice(0, 7);
+  $('#horas-periodo').value = periodo;
+
+  try {
+    const datos = await obtener('/api/resumen', { desde, hasta, periodo });
+    const cont = $('#horas-tabla');
+    if (!datos.personas.length) {
+      cont.innerHTML = '<p class="vacio">Nadie ha pedido nada todavía. Vuelve al paso 2.</p>';
+      $('#horas-aviso').textContent = '';
+      return;
+    }
+
+    const titulos = { SUPERVISOR: 'Supervisores', ATCO: 'ATCO (TWR)', AUX: 'Auxiliares' };
+    let categoriaPrevia = null;
+    const filas = datos.personas.map(p => {
+      const encabezado = p.categoria !== categoriaPrevia
+        ? `<tr class="fila-grupo"><td colspan="4">${titulos[p.categoria] || p.categoria}</td></tr>`
+        : '';
+      categoriaPrevia = p.categoria;
+      return encabezado + `<tr data-persona="${p.persona_id}">
+        <td><span class="etiqueta">${escapar(p.iniciales)}</span></td>
+        <td>${escapar(p.nombre)}</td>
+        <td>${p.dias.map(d => `<span class="etiqueta t-${d.slice(-1)}">${escapar(d)}</span>`).join(' ')}</td>
+        <td style="width:130px"><input type="number" step="0.5" min="0" class="horas-capt"
+              value="${p.horas ?? ''}" placeholder="—"
+              aria-label="Horas trabajadas de ${escapar(p.iniciales)}"></td>
+      </tr>`;
+    }).join('');
+
+    cont.innerHTML = `<div class="envoltura-tabla"><table class="datos">
+      <thead><tr><th>Siglas</th><th>Nombre</th><th>Qué pidió</th><th>Horas trabajadas</th></tr></thead>
+      <tbody>${filas}</tbody></table></div>`;
+
+    $('#horas-aviso').textContent = datos.sin_horas.length
+      ? `Faltan las horas de: ${datos.sin_horas.join(', ')}`
+      : 'Todas las horas están capturadas';
+    $('#horas-aviso').style.color = datos.sin_horas.length ? 'var(--aviso)' : 'var(--ok)';
+
+    $$('.horas-capt', cont).forEach(campo => {
+      const guardar = async () => {
+        const fila = campo.closest('tr');
+        try {
+          await enviar('/api/totales/uno', {
+            persona_id: Number(fila.dataset.persona),
+            periodo: $('#horas-periodo').value,
+            horas: campo.value,
+          });
+          await cargarHoras();
+        } catch (err) { fallar(err); }
+      };
+      campo.addEventListener('change', guardar);
+      campo.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const todos = $$('.horas-capt', cont);
+        const siguiente = todos[todos.indexOf(campo) + 1];
+        campo.blur();
+        if (siguiente) setTimeout(() => { siguiente.focus(); siguiente.select(); }, 120);
+      });
+    });
+  } catch (err) { fallar(err); }
+}
+
+/* ==========================================================================
+   4 · SUGERENCIA
+   ========================================================================== */
+
+async function cargarSugerencias() {
+  const { desde, hasta } = ventanaTrabajo();
+  const periodo = $('#horas-periodo').value || desde.slice(0, 7);
+  try {
+    const datos = await obtener('/api/sugerencias', { desde, hasta, periodo });
+    const soloPendientes = $('#sug-pendientes').checked;
+
+    $('#sug-conteo').textContent =
+      `${datos.total_asignados} de ${datos.total_lugares} lugar(es) asignado(s)`;
+
+    const lugares = soloPendientes ? datos.lugares.filter(l => l.libres > 0) : datos.lugares;
+    const cont = $('#sug-lista');
+    if (!lugares.length) {
+      cont.innerHTML = `<p class="vacio">${soloPendientes
+        ? 'Todos los lugares están cubiertos.'
+        : 'No hay lugares publicados. Vuelve al paso 1.'}</p>`;
+      await cargarMensajesAsignacion();
+      return;
+    }
+
+    cont.innerHTML = lugares.map(l => {
+      const clase = l.sin_solicitudes ? 'vacio' : (l.libres > 0 ? 'pendiente' : 'completo');
+      const estado_ = l.sin_solicitudes ? 'Nadie lo pidió'
+        : l.libres > 0 ? `Faltan ${l.libres} de ${l.cupos}` : `Cubierto (${l.cupos})`;
+
+      const lista = l.candidatos.length ? `<ol>${l.candidatos.map((c, i) => `
+        <li class="${c.asignado ? 'ya' : (i === 0 && l.libres > 0 ? 'sugerido' : '')} n-${c.nivel}">
+          <span class="puesto">${c.asignado ? '✓' : i + 1}</span>
+          <span class="quien">${escapar(c.iniciales)}
+            <small>${escapar(nombreCorto(c.nombre))}</small>
+            ${c.aviso ? `<em class="choque">${escapar(c.aviso)}</em>` : ''}</span>
+          <span class="horas ${c.horas === null ? 'falta' : ''}">
+            ${c.horas === null ? 'sin horas' : c.horas.toFixed(1)}
+            ${c.horas === null ? '' : '<small>trabajadas</small>'}</span>
+          <button class="btn chico ${c.asignado ? '' : (c.nivel === 'PROHIBIDO' ? 'peligro' : 'primario')}"
+                  data-asig="${c.persona_id}" data-fecha="${l.fecha}" data-turno="${l.turno}"
+                  data-nivel="${c.nivel}" ${c.asignado ? 'disabled' : ''}>
+            ${c.asignado ? 'Asignado' : (c.nivel === 'PROHIBIDO' ? 'Forzar' : 'Asignar')}
+          </button>
+        </li>`).join('')}</ol>`
+        : '<p class="sin-nadie">Nadie pidió este lugar.</p>';
+
+      return `<div class="lugar ${clase}">
+        <header>
+          <span class="cuando">${l.dia} ${l.turno}<small>${l.dow}</small></span>
+          <span class="grupo-eti">${escapar(l.grupo)}</span>
+          <span class="estado">${estado_}</span>
+        </header>
+        ${lista}
+      </div>`;
+    }).join('');
+
+    $$('[data-asig]', cont).forEach(b => b.addEventListener('click', async () => {
+      const prohibido = b.dataset.nivel === 'PROHIBIDO';
+      const fila = b.closest('li');
+      const motivo = $('.choque', fila)?.textContent.trim() || '';
+      if (prohibido && !confirm(`${motivo}\n\n¿Asignarlo de todos modos?`)) return;
+      try {
+        const r = await enviar('/api/asignaciones', {
+          persona_id: Number(b.dataset.asig),
+          fecha: b.dataset.fecha,
+          turno: b.dataset.turno,
+          forzar: true,
+        });
+        // El motivo real viene del evaluador; no se supone cuál fue.
+        avisar(r.forzado ? `Asignado. ${r.evaluacion.resumen}` : 'Asignado',
+               r.forzado ? 'warn' : 'ok', r.forzado ? 7000 : 3500);
+        await cargarSugerencias();
+      } catch (err) { fallar(err); }
+    }));
+
+    await cargarMensajesAsignacion();
+  } catch (err) { fallar(err); }
+}
+
+async function cargarMensajesAsignacion() {
+  const { desde, hasta } = ventanaTrabajo();
+  try {
+    const datos = await enviar('/api/wa/generar', { desde, hasta });
+    const cont = $('#sug-mensajes');
+    if (!datos.asignacion) {
+      cont.innerHTML = '<p class="vacio">Asigna a alguien y aquí sale el mensaje.</p>';
+      return;
+    }
+    cont.innerHTML = `
+      <div class="mensaje-caja">
+        <header><b>Asignación</b><span class="cuantos">${datos.total} lugar(es)</span></header>
+        <pre id="msj-asignacion">${escapar(datos.asignacion)}</pre>
+        <footer><button class="btn chico" id="copiar-asignacion">Copiar mensaje</button></footer>
+      </div>`;
+    $('#copiar-asignacion').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText($('#msj-asignacion').textContent);
+        avisar('Mensaje copiado');
+      } catch { avisar('Selecciónalo y copia con Ctrl+C', 'warn'); }
+    });
   } catch (err) { fallar(err); }
 }
 
@@ -1257,13 +1528,24 @@ async function cargarConfig() {
   estado.config = await obtener('/api/estado');
 }
 
+//: Vistas que no tienen pestaña propia y viven bajo «Más…».
+const VISTAS_SECUNDARIAS = ['cuadricula', 'asignar', 'vacantes', 'totales', 'mensajes'];
+
 function cambiarVista(nombre) {
-  $$('.pest').forEach(b => b.classList.toggle('activa', b.dataset.vista === nombre));
+  const pestana = VISTAS_SECUNDARIAS.includes(nombre) ? 'mas' : nombre;
+  $$('.pest').forEach(b => b.classList.toggle('activa', b.dataset.vista === pestana));
   $$('.vista').forEach(v => v.classList.toggle('activa', v.id === `vista-${nombre}`));
-  if (nombre === 'publicar') cargarMatriz();
-  if (nombre === 'vacantes') cargarVacantes();
-  if (nombre === 'totales')  cargarTotales();
-  if (nombre === 'personal') cargarPersonal();
+
+  if (nombre === 'publicar')    cargarMatriz();
+  if (nombre === 'solicitudes') { cargarSiglasConocidas(); cargarSolicitudes(); $('#sol-siglas').focus(); }
+  if (nombre === 'horas')       cargarHoras();
+  if (nombre === 'sugerencia')  cargarSugerencias();
+  if (nombre === 'vacantes')    cargarVacantes();
+  if (nombre === 'totales')     cargarTotales();
+  if (nombre === 'personal')    cargarPersonal();
+  if (nombre === 'cuadricula')  cargarCuadricula();
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function moverMes(delta) {
@@ -1292,6 +1574,7 @@ async function iniciar() {
     $(id).value = hoyISO();
   }
   $('#periodo-totales').value = `${estado.anio}-${String(estado.mes).padStart(2, '0')}`;
+  $('#horas-periodo').value = `${estado.anio}-${String(estado.mes).padStart(2, '0')}`;
 
   try {
     await cargarConfig();
@@ -1299,6 +1582,27 @@ async function iniciar() {
 
   // Navegación
   $$('.pest').forEach(b => b.addEventListener('click', () => cambiarVista(b.dataset.vista)));
+  // Los botones «Siguiente» y los atajos de «Más…»
+  document.addEventListener('click', (e) => {
+    const boton = e.target.closest('[data-ir]');
+    if (boton) cambiarVista(boton.dataset.ir);
+  });
+
+  // Paso 2 · solicitudes
+  $('#sol-siglas').addEventListener('input', mostrarQuienEs);
+  $('#sol-siglas').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); $('#sol-texto').focus(); }
+  });
+  $('#sol-texto').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); agregarSolicitud(); }
+  });
+  $('#sol-agregar').addEventListener('click', agregarSolicitud);
+
+  // Paso 3 · horas
+  $('#horas-periodo').addEventListener('change', cargarHoras);
+
+  // Paso 4 · sugerencia
+  $('#sug-pendientes').addEventListener('change', cargarSugerencias);
   $('#mes-ant').addEventListener('click', () => moverMes(-1));
   $('#mes-sig').addEventListener('click', () => moverMes(1));
   $('#mes-hoy').addEventListener('click', () => {
