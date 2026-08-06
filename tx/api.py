@@ -9,7 +9,7 @@ import tempfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from . import db, importar, reglas, semilla, whatsapp
+from . import acceso, db, importar, reglas, semilla, whatsapp
 from . import turnos as T
 
 
@@ -115,6 +115,33 @@ def guardar_ajustes(cx: sqlite3.Connection, cuerpo: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Candado del catálogo de personal
+# ---------------------------------------------------------------------------
+
+
+def _exigir_clave(cx: sqlite3.Connection, cuerpo: dict) -> None:
+    """Cualquier cambio al personal pasa por aquí."""
+    if not acceso.verificar(cx, cuerpo.get("clave")):
+        raise ErrorPeticion(
+            "Clave incorrecta. El catálogo de personal está bajo llave."
+        )
+
+
+def verificar_clave(cx: sqlite3.Connection, cuerpo: dict) -> dict:
+    if not acceso.verificar(cx, cuerpo.get("clave")):
+        raise ErrorPeticion("Clave incorrecta")
+    return {"ok": True}
+
+
+def cambiar_clave(cx: sqlite3.Connection, cuerpo: dict) -> dict:
+    try:
+        acceso.cambiar(cx, cuerpo.get("clave"), cuerpo.get("clave_nueva") or "")
+    except ValueError as exc:
+        raise ErrorPeticion(str(exc)) from exc
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
 # Personas
 # ---------------------------------------------------------------------------
 
@@ -126,6 +153,7 @@ def listar_personas(cx: sqlite3.Connection, params: dict) -> dict:
 
 
 def guardar_persona(cx: sqlite3.Connection, cuerpo: dict) -> dict:
+    _exigir_clave(cx, cuerpo)
     iniciales = (cuerpo.get("iniciales") or "").strip().upper()
     nombre = (cuerpo.get("nombre") or "").strip()
     if not iniciales:
@@ -163,6 +191,7 @@ def guardar_persona(cx: sqlite3.Connection, cuerpo: dict) -> dict:
 
 
 def borrar_persona(cx: sqlite3.Connection, cuerpo: dict) -> dict:
+    _exigir_clave(cx, cuerpo)
     persona_id = cuerpo.get("id")
     if not persona_id:
         raise ErrorPeticion("Falta el id")
@@ -1006,6 +1035,88 @@ def sugerencias(cx: sqlite3.Connection, params: dict) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Paso 5 · Cierre: qué quedó cubierto y qué sigue libre
+# ---------------------------------------------------------------------------
+
+
+def cierre(cx: sqlite3.Connection, params: dict) -> dict:
+    """El corte claro: lugar por lugar, cubierto o pendiente.
+
+    La pantalla de sugerencia sirve para decidir; ésta para ver de un vistazo
+    qué falta, que es otra pregunta.
+    """
+    desde, hasta = _ventana(params)
+    ronda = _ronda(cx, params)
+    ya = _asignados_por_lugar(cx, desde, hasta)
+
+    cubiertos: list[dict] = []
+    pendientes: list[dict] = []
+    por_grupo = {c: {"cupos": 0, "asignados": 0, "libres": 0} for c in T.CATEGORIAS}
+    por_dia: dict[str, dict] = {}
+
+    for v in db.vacantes(cx, desde):
+        if v["estado"] != "ABIERTA" or date.fromisoformat(v["fecha"]) > hasta:
+            continue
+        categoria = v["categoria"] or "ATCO"
+        fecha = date.fromisoformat(v["fecha"])
+        gente = sorted(ya.get((v["fecha"], v["turno"]), set()))
+        cupos = int(v["cupos"] or 0)
+        libres = max(0, cupos - len(gente))
+
+        entrada = {
+            "fecha": v["fecha"],
+            "dia": fecha.day,
+            "dow": _DOW_LARGO[fecha.weekday()],
+            "turno": v["turno"],
+            "categoria": categoria,
+            "grupo": whatsapp.GRUPOS.get(categoria, categoria),
+            "cupos": cupos,
+            "asignados": gente,
+            "libres": libres,
+            "abierto_a": T.alcance(categoria, ronda),
+        }
+
+        por_grupo[categoria]["cupos"] += cupos
+        por_grupo[categoria]["asignados"] += len(gente)
+        por_grupo[categoria]["libres"] += libres
+
+        dia = por_dia.setdefault(
+            v["fecha"],
+            {"fecha": v["fecha"], "dia": fecha.day, "dow": _DOW_LARGO[fecha.weekday()],
+             "cupos": 0, "asignados": 0, "libres": 0, "lugares": []},
+        )
+        dia["cupos"] += cupos
+        dia["asignados"] += len(gente)
+        dia["libres"] += libres
+        dia["lugares"].append(entrada)
+
+        (pendientes if libres else cubiertos).append(entrada)
+
+    orden = lambda l: (l["fecha"], T.TRONCALES.index(l["turno"]), l["categoria"])  # noqa: E731
+    cubiertos.sort(key=orden)
+    pendientes.sort(key=orden)
+    for dia in por_dia.values():
+        dia["lugares"].sort(key=orden)
+
+    total_cupos = sum(g["cupos"] for g in por_grupo.values())
+    total_asignados = sum(g["asignados"] for g in por_grupo.values())
+
+    return {
+        "desde": desde.isoformat(),
+        "hasta": hasta.isoformat(),
+        "ronda": ronda,
+        "cubiertos": cubiertos,
+        "pendientes": pendientes,
+        "dias": [por_dia[f] for f in sorted(por_dia)],
+        "por_grupo": por_grupo,
+        "total_cupos": total_cupos,
+        "total_asignados": total_asignados,
+        "total_libres": total_cupos - total_asignados,
+        "completo": total_cupos > 0 and total_asignados >= total_cupos,
+    }
+
+
 def limpiar_vacantes(cx: sqlite3.Connection, cuerpo: dict) -> dict:
     """Borra las vacantes de un rango. Sirve para empezar una publicación nueva."""
     desde = _fecha(cuerpo.get("desde"), "desde")
@@ -1346,6 +1457,7 @@ GET = {
     "/api/peticiones": listar_peticiones,
     "/api/resumen": resumen_solicitantes,
     "/api/sugerencias": sugerencias,
+    "/api/cierre": cierre,
     "/api/totales": listar_totales,
 }
 
@@ -1354,6 +1466,8 @@ POST = {
     "/api/ajustes": guardar_ajustes,
     "/api/personas/guardar": guardar_persona,
     "/api/personas/borrar": borrar_persona,
+    "/api/acceso/verificar": verificar_clave,
+    "/api/acceso/cambiar": cambiar_clave,
     "/api/horario": fijar_horario,
     "/api/asignaciones": crear_asignacion,
     "/api/asignaciones/borrar": borrar_asignacion,

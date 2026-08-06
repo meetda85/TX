@@ -23,6 +23,7 @@
     <button class="pest" data-vista="solicitudes"><i>2</i> Solicitudes</button>
     <button class="pest" data-vista="horas"><i>3</i> Horas</button>
     <button class="pest" data-vista="sugerencia"><i>4</i> Asignar</button>
+    <button class="pest" data-vista="cierre"><i>5</i> Resumen</button>
     <button class="pest secundaria" data-vista="personal">Personal</button>
     <button class="pest secundaria" data-vista="mas">Más…</button>
   </nav>
@@ -176,6 +177,32 @@
     <div id="sug-mensajes" class="mensajes-grupo"></div>
     <div class="pie-paso">
       <button class="btn" data-ir="horas">← Volver a las horas</button>
+      <button class="btn fuerte grande" data-ir="cierre">
+        Siguiente · ver qué quedó pendiente →
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 5 · RESUMEN ================= -->
+<section class="vista" id="vista-cierre">
+  <div class="tablero" id="cierre-tablero"></div>
+
+  <div class="tarjeta">
+    <h2>Todavía sin cubrir</h2>
+    <p class="nota">
+      Lo que falta por asignar. Si estás en la ronda 2 o 3, dice también a qué
+      grupos ya se les está ofreciendo.
+    </p>
+    <div id="cierre-pendientes"></div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Ya cubierto</h2>
+    <div id="cierre-cubiertos"></div>
+    <div class="pie-paso">
+      <button class="btn" data-ir="sugerencia">← Volver a asignar</button>
+      <button class="btn" data-ir="publicar">Publicar la siguiente ronda</button>
     </div>
   </div>
 </section>
@@ -411,13 +438,35 @@
 
 <!-- ================= PERSONAL ================= -->
 <section class="vista" id="vista-personal">
+  <div class="tarjeta" id="tarjeta-candado">
+    <h2>Catálogo de personal</h2>
+    <p class="nota">
+      Aquí se da de alta al personal, se cambia de categoría a quien asciende y
+      se da de baja a quien deja la torre. <b>Para modificar hace falta la clave.</b>
+      Consultar la lista es libre.
+    </p>
+    <div class="fila-controles" id="zona-candado">
+      <label>Clave
+        <input type="password" id="clave-personal" inputmode="numeric" maxlength="64"
+               placeholder="••••" autocomplete="current-password" style="width:120px">
+      </label>
+      <button class="btn primario" id="btn-desbloquear">Desbloquear</button>
+      <span class="nota" id="estado-candado" style="margin:0 0 8px 0"></span>
+    </div>
+    <p class="nota chiquita">
+      La clave evita cambios de pasada; no es una medida de seguridad. Quien tenga
+      el archivo <code>datos/tx.db</code> puede editarlo por fuera del programa.
+    </p>
+  </div>
+
   <div class="tarjeta">
     <h2>Personal</h2>
     <div class="fila-controles">
-      <button class="btn primario" id="btn-nueva-persona">Agregar persona</button>
+      <button class="btn primario" id="btn-nueva-persona" disabled>Agregar persona</button>
       <button class="btn" id="btn-importar-horario">Importar horario de Excel…</button>
       <input type="file" id="archivo-horario" accept=".xlsx,.csv" hidden>
       <button class="btn" id="btn-sembrar">Cargar plantilla S-TWR agosto</button>
+      <button class="btn" id="btn-cambiar-clave" disabled>Cambiar la clave…</button>
     </div>
     <div id="tabla-personal"></div>
   </div>

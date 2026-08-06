@@ -306,8 +306,16 @@ class Validaciones(BaseAPI):
                       fecha="09/08/2026", turno="K")
 
     def test_siglas_repetidas(self):
-        with self.assertRaises(api.ErrorPeticion):
-            self.post("/api/personas/guardar", iniciales="MR", nombre="Otro distinto")
+        with self.assertRaises(api.ErrorPeticion) as ctx:
+            self.post("/api/personas/guardar", clave="0348",
+                      iniciales="MR", nombre="Otro distinto")
+        # Que falle por las siglas, no por el candado.
+        self.assertIn("Ya existe", str(ctx.exception))
+
+    def test_el_alta_de_personal_esta_bajo_llave(self):
+        with self.assertRaises(api.ErrorPeticion) as ctx:
+            self.post("/api/personas/guardar", iniciales="XX", nombre="Alguien nuevo")
+        self.assertIn("bajo llave", str(ctx.exception))
 
     def test_codigo_de_horario_desconocido(self):
         with self.assertRaises(api.ErrorPeticion):

@@ -754,6 +754,7 @@ async function cambiarRonda(ronda) {
     avisar(EXPLICA_RONDA[ronda], 'ok', 6000);
     await cargarMensajesGrupo();
     if ($('#vista-sugerencia').classList.contains('activa')) await cargarSugerencias();
+    if ($('#vista-cierre').classList.contains('activa')) await cargarCierre();
   } catch (err) { fallar(err); }
 }
 
@@ -1083,6 +1084,173 @@ async function cargarMensajesAsignacion() {
 }
 
 /* ==========================================================================
+   5 · RESUMEN — qué quedó cubierto y qué sigue libre
+   ========================================================================== */
+
+async function cargarCierre() {
+  const { desde, hasta } = ventanaTrabajo();
+  try {
+    const d = await obtener('/api/cierre', { desde, hasta });
+    estado.ronda = d.ronda;
+    pintarSelectorRonda();
+
+    const avance = d.total_cupos ? Math.round(d.total_asignados / d.total_cupos * 100) : 0;
+    const titulos = { SUPERVISOR: 'Supervisores', ATCO: 'ATCO (TWR)', AUX: 'Auxiliares' };
+
+    const desglose = GRUPOS_ORDEN.filter(g => d.por_grupo[g].cupos).map(g => {
+      const x = d.por_grupo[g];
+      const pct = x.cupos ? Math.round(x.asignados / x.cupos * 100) : 0;
+      return `<div class="reng"><b>${titulos[g]}</b>
+        <span class="pista"><span style="width:${pct}%"></span></span>
+        <span class="cuenta">${x.asignados}/${x.cupos}</span></div>`;
+    }).join('');
+
+    $('#cierre-tablero').innerHTML = `
+      <div class="marcador total">
+        <div class="cifra">${d.total_cupos}</div>
+        <div class="etiqueta">Lugares publicados</div>
+        <div class="detalle">Ronda ${d.ronda} · del ${fechaLarga(d.desde)} al ${fechaLarga(d.hasta)}</div>
+      </div>
+      <div class="marcador cubierto">
+        <div class="cifra">${d.total_asignados}</div>
+        <div class="etiqueta">Ya cubiertos</div>
+        <div class="barra-avance"><span style="width:${avance}%"></span></div>
+        <div class="detalle">${avance}% del total</div>
+      </div>
+      <div class="marcador libre ${d.total_libres ? '' : 'cero'}">
+        <div class="cifra">${d.total_libres}</div>
+        <div class="etiqueta">Siguen libres</div>
+        <div class="detalle">${d.total_libres
+          ? 'Falta asignarlos o republicarlos'
+          : 'No falta nada por cubrir'}</div>
+      </div>
+      <div class="marcador">
+        <div class="etiqueta">Por grupo</div>
+        <div class="por-grupo">${desglose || '<div class="detalle">Sin lugares publicados</div>'}</div>
+      </div>`;
+
+    $('#cierre-pendientes').innerHTML = d.pendientes.length
+      ? pintarDiasCierre(d.pendientes, false)
+      : `<p class="vacio">${d.total_cupos
+          ? '✓ Todos los lugares están cubiertos.'
+          : 'No hay lugares publicados en este rango.'}</p>`;
+
+    $('#cierre-cubiertos').innerHTML = d.cubiertos.length
+      ? pintarDiasCierre(d.cubiertos, true)
+      : '<p class="vacio">Todavía no se ha asignado ningún lugar.</p>';
+  } catch (err) { fallar(err); }
+}
+
+/** Agrupa los lugares por día y los pinta como tarjetas. */
+function pintarDiasCierre(lugares, cubierto) {
+  const titulos = { SUPERVISOR: 'Supervisores', ATCO: 'ATCO (TWR)', AUX: 'Auxiliares' };
+  const porDia = {};
+  for (const l of lugares) (porDia[l.fecha] ||= []).push(l);
+
+  return Object.keys(porDia).sort().map(fecha => {
+    const delDia = porDia[fecha];
+    const cupos = delDia.reduce((s, l) => s + l.cupos, 0);
+    const libres = delDia.reduce((s, l) => s + l.libres, 0);
+
+    const tarjetas = delDia.map(l => {
+      const gente = l.asignados.length
+        ? l.asignados.map(escapar).join(', ') : '';
+      const falta = l.libres
+        ? `<span class="falta-txt">${gente ? ' · ' : ''}faltan ${l.libres}</span>` : '';
+      const abierto = !cubierto && l.abierto_a.length > 1
+        ? `<div class="abierto">abierto a ${l.abierto_a.map(g => titulos[g]).join(' + ')}</div>` : '';
+      return `<div class="lugar-chico ${cubierto ? 'ok' : 'falta'}">
+        <span class="turno-eti t-${l.turno}">${l.turno}</span>
+        <div class="quienes">
+          <div class="grupo">${titulos[l.categoria]}</div>
+          <div class="gente">${gente || (l.libres ? '' : '—')}${falta}</div>
+          ${abierto}
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div class="dia-cierre">
+      <header>
+        <span class="fecha">${delDia[0].dia}<small>${delDia[0].dow}</small></span>
+        <span class="cuenta" style="color:var(--${cubierto ? 'ok' : 'aviso'})">
+          ${cubierto ? `${cupos} cubierto(s)` : `${libres} sin cubrir de ${cupos}`}</span>
+      </header>
+      <div class="tarjetas-lugar">${tarjetas}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ==========================================================================
+   CANDADO DEL PERSONAL
+   ========================================================================== */
+
+//: La clave vive sólo en memoria mientras la pestaña está abierta.
+let claveEnMemoria = null;
+
+function pintarCandado() {
+  const abierto = Boolean(claveEnMemoria);
+  $('#estado-candado').innerHTML = abierto
+    ? '<span class="candado-abierto">✓ Desbloqueado. Ya puedes modificar el personal.</span>'
+    : '<span class="candado-cerrado">Bajo llave. Sólo se puede consultar.</span>';
+  $('#btn-desbloquear').textContent = abierto ? 'Bloquear' : 'Desbloquear';
+  $('#clave-personal').disabled = abierto;
+  $('#btn-nueva-persona').disabled = !abierto;
+  $('#btn-cambiar-clave').disabled = !abierto;
+  $$('[data-editar]').forEach(b => { b.disabled = !abierto; });
+}
+
+async function alternarCandado() {
+  if (claveEnMemoria) {
+    claveEnMemoria = null;
+    $('#clave-personal').value = '';
+    pintarCandado();
+    avisar('Catálogo bloqueado de nuevo');
+    return;
+  }
+  const clave = $('#clave-personal').value;
+  if (!clave) { avisar('Escribe la clave', 'warn'); $('#clave-personal').focus(); return; }
+  try {
+    await enviar('/api/acceso/verificar', { clave });
+    claveEnMemoria = clave;
+    $('#clave-personal').value = '';
+    pintarCandado();
+    avisar('Desbloqueado');
+  } catch (err) { fallar(err); $('#clave-personal').select(); }
+}
+
+function modalCambiarClave() {
+  abrirModal(`
+    <h3>Cambiar la clave</h3>
+    <p class="sub-modal">Al menos 4 caracteres. Anótala en un lugar seguro: si se
+      pierde, hay que borrar el ajuste directamente en la base de datos.</p>
+    <label class="linea" style="margin-bottom:12px">Clave nueva
+      <input type="password" id="clave-nueva" maxlength="64" autocomplete="new-password"
+             style="flex:1"></label>
+    <label class="linea" style="margin-bottom:12px">Repítela
+      <input type="password" id="clave-repetir" maxlength="64" autocomplete="new-password"
+             style="flex:1"></label>
+    <div class="acciones-modal">
+      <button class="btn" id="cc-cancelar">Cancelar</button>
+      <button class="btn primario" id="cc-guardar">Cambiar</button>
+    </div>`);
+
+  $('#cc-cancelar').addEventListener('click', cerrarModal);
+  $('#cc-guardar').addEventListener('click', async () => {
+    const nueva = $('#clave-nueva').value;
+    if (nueva !== $('#clave-repetir').value) {
+      avisar('Las dos claves no coinciden', 'error');
+      return;
+    }
+    try {
+      await enviar('/api/acceso/cambiar', { clave: claveEnMemoria, clave_nueva: nueva });
+      claveEnMemoria = nueva;
+      avisar('Clave cambiada');
+      cerrarModal();
+    } catch (err) { fallar(err); }
+  });
+}
+
+/* ==========================================================================
    VACANTES
    ========================================================================== */
 
@@ -1294,6 +1462,7 @@ async function cargarPersonal() {
 
     $$('[data-editar]').forEach(b => b.addEventListener('click', () =>
       modalPersona(JSON.parse(b.dataset.editar))));
+    pintarCandado();
   } catch (err) { fallar(err); }
 }
 
@@ -1326,6 +1495,7 @@ function modalPersona(persona = {}) {
   $('#p-guardar').addEventListener('click', async () => {
     try {
       await enviar('/api/personas/guardar', {
+        clave: claveEnMemoria,
         id: persona.id,
         iniciales: $('#p-siglas').value,
         nombre: $('#p-nombre').value,
@@ -1579,6 +1749,7 @@ function cambiarVista(nombre) {
   if (nombre === 'solicitudes') { cargarSiglasConocidas(); cargarSolicitudes(); $('#sol-siglas').focus(); }
   if (nombre === 'horas')       cargarHoras();
   if (nombre === 'sugerencia')  cargarSugerencias();
+  if (nombre === 'cierre')      cargarCierre();
   if (nombre === 'vacantes')    cargarVacantes();
   if (nombre === 'totales')     cargarTotales();
   if (nombre === 'personal')    cargarPersonal();
@@ -1722,6 +1893,12 @@ async function iniciar() {
   });
 
   // Personal
+  $('#btn-desbloquear').addEventListener('click', alternarCandado);
+  $('#clave-personal').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); alternarCandado(); }
+  });
+  $('#btn-cambiar-clave').addEventListener('click', modalCambiarClave);
+  pintarCandado();
   $('#btn-nueva-persona').addEventListener('click', () => modalPersona());
   $('#btn-importar-horario').addEventListener('click', () => $('#archivo-horario').click());
   $('#archivo-horario').addEventListener('change', (e) => {

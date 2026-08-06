@@ -28,7 +28,7 @@ en máquinas con permisos restringidos y sin internet.
 
 ---
 
-## Cómo se usa: cuatro pasos
+## Cómo se usa: cinco pasos
 
 El trabajo del día va en línea recta, y cada pantalla lleva a la siguiente.
 
@@ -91,6 +91,42 @@ juntaría dos turnos el mismo día, que serían tres jornadas dobles seguidas).
 El aviso no bloquea: la decisión es del supervisor.
 
 Al final, el mensaje de asignación listo para copiar con su `Pls ack`.
+
+### 5 · Resumen
+
+El corte claro de cómo va la publicación, que es otra pregunta distinta a «a
+quién le asigno»:
+
+- Tres marcadores grandes: **publicados**, **ya cubiertos** y **siguen libres**,
+  con el porcentaje de avance y el desglose por grupo.
+- **Todavía sin cubrir**, día por día: qué turno, de qué grupo, quién va ya y
+  cuántos faltan. En la ronda 2 o 3 dice además a qué grupos se les está
+  ofreciendo.
+- **Ya cubierto**, con los nombres de quienes quedaron.
+
+De ahí se salta directo a publicar la siguiente ronda.
+
+---
+
+## El catálogo de personal
+
+Está en la pestaña **Personal** y sirve para dar de alta, cambiar de categoría
+a quien asciende (de torre a supervisor, por ejemplo) y dar de baja a quien
+deja la torre.
+
+**Modificarlo pide una clave.** La inicial es `0348` y se puede cambiar desde
+la misma pantalla. Consultar la lista es libre; sólo los cambios están bajo
+llave.
+
+> La clave es un seguro contra cambios accidentales, **no una medida de
+> seguridad**. Cuatro dígitos son diez mil combinaciones, y quien tenga el
+> archivo `datos/tx.db` en las manos puede editarlo por fuera del programa.
+> Sirve para que la lista no se modifique de pasada cuando varias personas
+> usan la misma computadora, que es el problema real.
+
+La clave no se guarda en claro: se almacena su derivación PBKDF2 con sal, para
+que no quede a la vista de quien abra la base por curiosidad. Si se pierde, se
+recupera borrando el ajuste `clave_personal` de la tabla `ajustes`.
 
 ---
 
@@ -192,7 +228,7 @@ Los turnos que se publican como tiempo extra son **C**, **K** y **O**.
 
 ## Otras pantallas
 
-Fuera de los cuatro pasos, bajo **Más…** y **Personal**:
+Fuera de los cinco pasos, bajo **Más…**:
 
 ### Cuadrícula
 
@@ -241,15 +277,6 @@ la casilla; después les completas el nombre en la pestaña Personal.
   quién. Así la cuadrícula arranca con el historial ya cargado, sin capturar
   nada a mano.
 
-### Personal
-
-Alta y edición de personas, e importación del horario mensual desde el Excel
-que ya generan (`HORARIO DE TRABAJO S-TWR`). Detecta sola la fila de días y la
-columna de siglas, y te enseña una previa antes de escribir nada.
-
----
-
----
 
 ## Sobre el Excel de conteo
 
@@ -295,10 +322,11 @@ tx/
   whatsapp.py   Lectura y redacción de los mensajes del grupo
   xlsx.py       Lector de .xlsx sin dependencias
   importar.py   Importadores de horario mensual y del libro de conteo
+  acceso.py     Candado del catálogo de personal (PBKDF2 con sal)
   semilla.py    Horario de agosto 2026 de S-TWR para arrancar
   web/          Interfaz (HTML, CSS y JavaScript sin frameworks)
 datos/          Base de datos local (no se versiona)
-pruebas/        190 pruebas automatizadas
+pruebas/        212 pruebas automatizadas
 ```
 
 ## Pruebas

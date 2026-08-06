@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import api, db
+from . import acceso, api, db
 
 WEB = Path(__file__).resolve().parent / "web"
 LIMITE_CUERPO = 64 * 1024 * 1024  # 64 MB: suficiente para un export de chat
@@ -115,6 +115,7 @@ def puerto_libre(preferido: int = 8787) -> int:
 def crear_servidor(puerto: int, ruta_db=None) -> ThreadingHTTPServer:
     cx = db.conectar(ruta_db)
     db.inicializar(cx)
+    acceso.asegurar_clave(cx)
     Manejador.cx = cx
     return ThreadingHTTPServer(("127.0.0.1", puerto), Manejador)
 

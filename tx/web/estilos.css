@@ -739,3 +739,81 @@ table.datos tr.fila-grupo:hover td { background: var(--papel-2); }
   background: var(--aviso-fondo); color: var(--aviso); border: 1px solid var(--aviso);
 }
 .lugar > header .abierto-a { font-size: 11px; color: var(--tinta-suave); }
+
+/* ---------- Tablero del resumen ---------- */
+
+.tablero {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px; margin-bottom: 16px;
+}
+.marcador {
+  background: var(--papel); border: 1px solid var(--borde); border-radius: 12px;
+  padding: 16px 18px; box-shadow: var(--sombra); border-top: 4px solid var(--borde-fuerte);
+}
+.marcador .cifra {
+  font-size: 34px; font-weight: 750; line-height: 1.05;
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+}
+.marcador .etiqueta {
+  font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--tinta-suave); margin-top: 4px;
+}
+.marcador .detalle { font-size: 12px; color: var(--tinta-suave); margin-top: 6px; }
+.marcador.total     { border-top-color: var(--acento); }
+.marcador.cubierto  { border-top-color: var(--ok);    }
+.marcador.cubierto .cifra { color: var(--ok); }
+.marcador.libre     { border-top-color: var(--aviso); }
+.marcador.libre .cifra { color: var(--aviso); }
+.marcador.libre.cero { border-top-color: var(--ok); }
+.marcador.libre.cero .cifra { color: var(--ok); }
+
+.barra-avance {
+  height: 8px; border-radius: 20px; background: var(--borde);
+  overflow: hidden; margin-top: 10px;
+}
+.barra-avance > span { display: block; height: 100%; background: var(--ok); border-radius: 20px; }
+
+/* Desglose por grupo dentro del tablero */
+.por-grupo { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+.por-grupo .reng { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.por-grupo .reng b { min-width: 74px; font-weight: 650; }
+.por-grupo .reng .pista { flex: 1; height: 6px; border-radius: 20px; background: var(--borde); overflow: hidden; }
+.por-grupo .reng .pista span { display: block; height: 100%; background: var(--ok); }
+.por-grupo .reng .cuenta { font-variant-numeric: tabular-nums; color: var(--tinta-suave); min-width: 46px; text-align: right; }
+
+/* ---------- Lista de días del resumen ---------- */
+
+.dia-cierre { border: 1px solid var(--borde); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+.dia-cierre > header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 13px; background: var(--papel-2); border-bottom: 1px solid var(--borde);
+}
+.dia-cierre > header .fecha { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dia-cierre > header .fecha small { font-weight: 400; color: var(--tinta-suave); margin-left: 6px; }
+.dia-cierre > header .cuenta { margin-left: auto; font-size: 12px; font-weight: 650; }
+
+.tarjetas-lugar { display: flex; flex-wrap: wrap; gap: 8px; padding: 11px 13px; }
+.lugar-chico {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 12px; border-radius: 9px; min-width: 190px;
+  border: 1px solid var(--borde); background: var(--papel);
+  border-left: 4px solid var(--borde-fuerte);
+}
+.lugar-chico.ok    { border-left-color: var(--ok);    background: color-mix(in srgb, var(--ok-fondo) 40%, var(--papel)); }
+.lugar-chico.falta { border-left-color: var(--aviso); background: color-mix(in srgb, var(--aviso-fondo) 40%, var(--papel)); }
+.lugar-chico .turno-eti {
+  display: grid; place-items: center; flex: none; width: 34px; height: 30px;
+  border-radius: 7px; font: 800 15px ui-monospace, Menlo, Consolas, monospace;
+}
+.lugar-chico .turno-eti.t-C { background: var(--c-fondo); color: var(--c-tinta); }
+.lugar-chico .turno-eti.t-K { background: var(--k-fondo); color: var(--k-tinta); }
+.lugar-chico .turno-eti.t-O { background: var(--o-fondo); color: var(--o-tinta); }
+.lugar-chico .quienes { min-width: 0; }
+.lugar-chico .quienes .grupo { font-size: 10.5px; color: var(--tinta-suave); text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+.lugar-chico .quienes .gente { font-size: 13px; font-weight: 650; }
+.lugar-chico .quienes .gente .falta-txt { color: var(--aviso); }
+.lugar-chico .quienes .abierto { font-size: 10.5px; color: var(--tinta-suave); margin-top: 1px; }
+
+.nota.chiquita { font-size: 11.5px; opacity: .85; }
+.candado-abierto { color: var(--ok); font-weight: 650; }
+.candado-cerrado { color: var(--tinta-suave); }
