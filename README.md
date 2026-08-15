@@ -110,9 +110,16 @@ asignarse, porque todavía no se trabaja.
 
 ### 4 · Asignar
 
-Lugar por lugar, quién lo pidió **ordenado de menos a más horas trabajadas**.
-El primero de cada lista es la sugerencia. Quien no tenga horas capturadas va
-al final, porque no hay con qué compararlo.
+**Un día por tarjeta**, y adentro un bloque por categoría. Cada bloque abre con
+los lugares que hay ese día y cómo van (`C 1/2`, `K 0/1`), y sigue con **todos
+los que pidieron ese día**, ordenados de menos a más horas trabajadas. El
+primero de cada lista es la sugerencia; quien no tenga horas capturadas va al
+final, porque no hay con qué compararlo.
+
+Cada persona ocupa **un solo renglón por día**, con los turnos que pidió como
+botones. Pulsas el turno y queda asignado; **vuelves a pulsarlo y se quita**,
+con el lugar de regreso a la lista de libres. Cuando un turno se llena, a los
+demás se les desactiva ese botón.
 
 Si hay horario cargado, se avisa de los choques (que ya trae ese turno, que
 juntaría dos turnos el mismo día, que serían tres jornadas dobles seguidas).

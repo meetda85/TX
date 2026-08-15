@@ -247,39 +247,82 @@ table.tabla tr.grupo td { background:var(--surface-2); font:800 11px var(--ui);
 input.horas-capt { width:110px; text-align:right; font:650 14px var(--mono);
   font-variant-numeric:tabular-nums; }
 
-/* ---------- Paso 4 ---------- */
-.lugar { border:1px solid var(--line); border-radius:10px; margin-bottom:10px;
-  overflow:hidden; background:var(--surface-2); }
-.lugar > header { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-  padding:9px 13px; border-bottom:1px solid var(--line); background:var(--surface); }
-.lugar > header .cuando { font:700 14px var(--mono); }
-.lugar > header .cuando small { font:400 12px var(--ui); color:var(--ink-soft); margin-left:6px; }
-.lugar > header .grupo-eti { font-size:11.5px; color:var(--ink-soft); }
-.lugar > header .estado { margin-left:auto; font-size:12px; font-weight:650; }
-.lugar.completo > header .estado { color:var(--ok); }
-.lugar.pendiente > header .estado { color:var(--warn); }
-.lugar.nadie > header .estado { color:var(--ink-soft); }
-.lugar ol { list-style:none; margin:0; padding:8px 13px 12px; }
-.lugar ol li { display:flex; align-items:center; gap:10px; padding:7px 0;
+/* ---------- Paso 4: un día por tarjeta, adentro las categorías ---------- */
+.dia-asig { border:1px solid var(--line); border-radius:12px; margin-bottom:14px;
+  overflow:hidden; background:var(--surface); box-shadow:var(--shadow); }
+.dia-asig > header { display:flex; align-items:baseline; gap:10px;
+  padding:10px 14px; background:var(--surface-2);
+  border-bottom:1px solid var(--line-firm); }
+.dia-asig > header .num { font:750 21px/1 var(--mono); }
+.dia-asig > header .dow { font-size:13px; color:var(--ink-soft); text-transform:capitalize; }
+.dia-asig > header .avance { margin-left:auto; font:650 12px var(--ui); color:var(--warn); }
+.dia-asig.listo > header { background:var(--ok-bg); border-bottom-color:var(--ok); }
+.dia-asig.listo > header .avance { color:var(--ok); }
+
+.bloque-cat { border-top:1px solid var(--line); }
+.bloque-cat:first-of-type { border-top:0; }
+.cab-cat { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:8px 14px; background:var(--surface-2); }
+.cab-cat > b { font-size:12.5px; letter-spacing:.02em; }
+.cab-cat .estado { margin-left:auto; font-size:11.5px; font-weight:650; color:var(--warn); }
+.bloque-cat.cubierto .cab-cat .estado { color:var(--ok); }
+.cab-cat .abierto-a { font-size:11px; color:var(--ink-soft); font-style:italic; }
+
+/* Los lugares que hay en esa categoría ese día: turno y cuántos van. */
+.huecos { display:flex; gap:5px; }
+.hueco-turno { display:inline-flex; align-items:center; gap:4px; padding:2px 7px;
+  border-radius:6px; font:650 11px var(--mono); font-variant-numeric:tabular-nums;
+  border:1px solid; }
+.hueco-turno b { font:800 12px var(--mono); }
+.hueco-turno.t-C { background:var(--c-bg); color:var(--c-ink); border-color:var(--c-line); }
+.hueco-turno.t-K { background:var(--k-bg); color:var(--k-ink); border-color:var(--k-line); }
+.hueco-turno.t-O { background:var(--o-bg); color:var(--o-ink); border-color:var(--o-line); }
+.hueco-turno.lleno { opacity:.5; }
+
+.bloque-cat ol { list-style:none; margin:0; padding:4px 14px 10px; }
+.bloque-cat ol li { display:flex; align-items:center; gap:10px; padding:7px 0;
   border-bottom:1px dashed var(--line); }
-.lugar ol li:last-child { border-bottom:0; }
-.lugar ol li .puesto { width:22px; height:22px; border-radius:50%; flex:none;
+.bloque-cat ol li:last-child { border-bottom:0; }
+.bloque-cat ol li .puesto { width:22px; height:22px; border-radius:50%; flex:none;
   display:grid; place-items:center; font:800 11px var(--mono);
   background:var(--line); color:var(--ink-soft); }
-.lugar ol li.sugerido .puesto { background:var(--ok); color:#fff; }
-.lugar ol li.ya .puesto { background:var(--accent); color:var(--accent-ink); }
-.lugar ol li .quien { flex:1; min-width:0; font-size:13.5px; font-weight:650; }
-.lugar ol li .quien small { display:block; font-weight:400; font-size:11.5px; color:var(--ink-soft); }
-.lugar ol li .quien em { display:block; font-style:normal; font-size:11px;
-  font-weight:600; color:var(--warn); margin-top:2px; }
-.lugar ol li.grave .quien em { color:var(--crit); }
-.lugar ol li.grave .puesto { background:var(--crit-bg); color:var(--crit); }
-.lugar ol li.sugerido.grave .puesto { background:var(--crit); color:#fff; }
-.lugar ol li .horas { font:750 14px var(--mono); font-variant-numeric:tabular-nums;
-  min-width:72px; text-align:right; }
-.lugar ol li .horas small { display:block; font:400 10px var(--ui); color:var(--ink-soft); }
-.lugar ol li .horas.falta { color:var(--warn); font:600 12px var(--ui); }
-.lugar .sin-nadie { padding:12px 13px; font-size:13px; color:var(--ink-soft); }
+.bloque-cat ol li.sugerido .puesto { background:var(--ok); color:#fff; }
+.bloque-cat ol li.ya .puesto { background:var(--accent); color:var(--accent-ink); }
+.bloque-cat ol li .quien { flex:1; min-width:0; font-size:13.5px; font-weight:650; }
+.bloque-cat ol li .quien small { display:block; font-weight:400; font-size:11.5px;
+  color:var(--ink-soft); }
+.bloque-cat ol li .horas { font:750 14px var(--mono); font-variant-numeric:tabular-nums;
+  min-width:66px; text-align:right; }
+.bloque-cat ol li .horas small { display:block; font:400 10px var(--ui); color:var(--ink-soft); }
+.bloque-cat ol li .horas.falta { color:var(--warn); font:600 12px var(--ui); }
+.bloque-cat .sin-nadie { padding:6px 14px 12px; font-size:12.5px; color:var(--ink-soft); }
+
+/* Un botón por turno pedido: se pulsa para dar el lugar y se vuelve a pulsar
+   para quitarlo. Es el mismo lugar en los dos sentidos, así que es un interruptor. */
+.chips { display:flex; gap:5px; flex:none; }
+.chip-turno { position:relative; min-width:38px; height:32px; padding:0 8px;
+  border-radius:8px; border:1.5px solid; cursor:pointer;
+  font:800 13px var(--mono); display:inline-flex; align-items:center;
+  justify-content:center; gap:3px; transition:transform .08s, box-shadow .12s; }
+.chip-turno i { font-style:normal; font-size:13px; font-weight:700; opacity:.85; }
+.chip-turno em { font-style:normal; font:800 11px var(--ui); color:var(--crit); }
+.chip-turno:hover:not(:disabled) { transform:translateY(-1px);
+  box-shadow:0 3px 10px rgb(15 27 46/.16); }
+.chip-turno:active:not(:disabled) { transform:none; }
+
+.chip-turno.libre.t-C { background:var(--surface); color:var(--c-ink); border-color:var(--c-line); }
+.chip-turno.libre.t-K { background:var(--surface); color:var(--k-ink); border-color:var(--k-line); }
+.chip-turno.libre.t-O { background:var(--surface); color:var(--o-ink); border-color:var(--o-line); }
+.chip-turno.libre:hover:not(:disabled) { border-width:2px; }
+
+.chip-turno.dado { background:var(--accent); color:var(--accent-ink);
+  border-color:var(--accent); }
+.chip-turno.dado:hover { background:var(--crit); border-color:var(--crit); }
+
+.chip-turno.lleno { background:var(--surface-2); color:var(--ink-soft);
+  border-color:var(--line); border-style:dashed; cursor:not-allowed; opacity:.65; }
+.chip-turno.riesgo { border-color:var(--crit); border-style:dashed;
+  background:var(--crit-bg); color:var(--crit); }
 
 /* ---------- Tablero del resumen ---------- */
 .tablero { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
@@ -558,12 +601,17 @@ input.horas-capt { width:110px; text-align:right; font:650 14px var(--mono);
   <div class="tarjeta">
     <h2>4 · A quién asignarle</h2>
     <p class="nota">
-      Lugar por lugar, quién lo pidió ordenado de <b>menos a más horas
-      trabajadas</b>. El primero de cada lista es la sugerencia; la decisión
-      sigue siendo tuya.
+      Un día por tarjeta, y adentro cada categoría con <b>los lugares que hay</b>
+      y <b>todos los que pidieron</b> ese día, ordenados de menos a más horas
+      trabajadas. El primero de cada lista es la sugerencia; la decisión sigue
+      siendo tuya.
+    </p>
+    <p class="nota">
+      Pulsa el turno para asignarlo. <b>Vuelve a pulsarlo para quitarlo</b> y el
+      lugar regresa a estar libre.
     </p>
     <div class="linea">
-      <label class="check"><input type="checkbox" id="a-pendientes"> Sólo lugares sin cubrir</label>
+      <label class="check"><input type="checkbox" id="a-pendientes"> Sólo lo que falta por cubrir</label>
       <span class="nota" id="a-conteo" style="margin:0 0 8px auto"></span>
     </div>
     <div id="a-lista"></div>
@@ -737,6 +785,37 @@ function cargar() {
   if (!estado.clave) estado.clave = CLAVE_INICIAL;
   if (!ESCALONES[estado.ronda]) estado.ronda = 1;
   PERSONAL = estado.personal;
+  migrarAsignados();
+}
+
+/**
+ * Pasa las asignaciones viejas «fecha|turno» al formato «fecha|grupo|turno».
+ *
+ * A cada quien se le busca el lugar que de veras estaba ocupando ese día: el de
+ * su propia categoría si había, y si no el de la categoría de abajo que alcance
+ * a cubrir, que es lo que pasa en las rondas 2 y 3.
+ */
+function migrarAsignados() {
+  const viejas = Object.keys(estado.asignados).filter(k => k.split('|').length === 2);
+  if (!viejas.length) return;
+
+  for (const k of viejas) {
+    const [f, t] = k.split('|');
+    const gente = estado.asignados[k];
+    delete estado.asignados[k];
+    for (const sig of gente) {
+      const p = PERSONAL.find(x => x.i === sig);
+      if (!p) continue;
+      // De la propia categoría hacia abajo: primero donde encaja natural.
+      const posibles = ORDEN.filter(g => puedeCubrir(p.c, g))
+        .sort((a,b) => (a !== p.c) - (b !== p.c));
+      const g = posibles.find(g => (estado.cupos[kCupo(f,g,t)] || 0) > dados(f,g,t).length)
+             || posibles.find(g => (estado.cupos[kCupo(f,g,t)] || 0) > 0)
+             || p.c;
+      (estado.asignados[kAsig(f,g,t)] ||= []).push(sig);
+    }
+  }
+  guardar();
 }
 
 function guardar() {
@@ -976,9 +1055,7 @@ function faltantes() {
   for (const d of ventana()) for (const g of ORDEN) for (const t of TRONCALES) {
     const cupos = estado.cupos[kCupo(d.f,g,t)] || 0;
     if (!cupos) continue;
-    const cubiertos = (estado.asignados[kAsig(d.f,t)] || [])
-      .filter(sig => persona(sig) && persona(sig).c === g).length;
-    const libres = Math.max(0, cupos - cubiertos);
+    const libres = Math.max(0, cupos - dados(d.f,g,t).length);
     if (libres) salida.push({ f: d.f, g, t, cupos: libres });
   }
   return salida;
@@ -1205,11 +1282,17 @@ function pintarHoras() {
    4 · Sugerencia
    ========================================================================== */
 
-const kAsig = (f,t) => `${f}|${t}`;
+//: La asignación se guarda por día + grupo + turno, igual que los cupos. Si
+//: sólo se guardara por día y turno, un lugar de auxiliar cubierto descontaría
+//: también del de torre en ese mismo turno, y la cuenta de libres saldría mal.
+const kAsig = (f,g,t) => `${f}|${g}|${t}`;
+
+/** A quién se le dio ese lugar. */
+const dados = (f,g,t) => estado.asignados[kAsig(f,g,t)] || [];
 
 /** Turnos ya asignados a una persona en un día. */
 function turnosDe(sig, fecha) {
-  return TRONCALES.filter(t => (estado.asignados[kAsig(fecha,t)] || []).includes(sig));
+  return TRONCALES.filter(t => ORDEN.some(g => dados(fecha,g,t).includes(sig)));
 }
 
 /**
@@ -1248,92 +1331,158 @@ function pintarSugerencias() {
   const porPersona = peticionesEnVentana();
   const soloPend = $('#a-pendientes').checked;
 
-  const lugares = [];
-  for (const d of dias) for (const g of ORDEN) for (const t of TRONCALES) {
-    const cupos = estado.cupos[kCupo(d.f,g,t)] || 0;
-    if (!cupos) continue;
-    const ya = estado.asignados[kAsig(d.f,t)] || [];
-    // En la ronda 1 sólo la propia categoría; después van entrando las de
-    // arriba, que sí pueden cubrir el puesto.
-    const admitidos = alcance(g, estado.ronda);
-    const candidatos = Object.keys(porPersona)
-      .filter(sig => admitidos.includes(persona(sig).c)
-                  && porPersona[sig].some(q => q.f === d.f && q.t === t))
-      .map(sig => ({
-        sig,
-        nombre: persona(sig).n,
-        categoria: persona(sig).c,
-        deOtra: persona(sig).c !== g,
-        horas: estado.horas[sig] ?? null,
-        asignado: ya.includes(sig),
-        ...(ya.includes(sig) ? { alerta:null, grave:false } : revisar(sig, d.f, t)),
-      }))
-      // Menos horas primero. Quien no tenga horas va al final: no hay con qué comparar.
-      .sort((a,b) => (a.horas === null) - (b.horas === null)
-                  || (a.horas ?? 0) - (b.horas ?? 0)
-                  || a.sig.localeCompare(b.sig));
-    lugares.push({ ...d, g, t, cupos, ya, libres: Math.max(0, cupos - ya.length),
-                   candidatos, admitidos });
+  //: Un día por tarjeta y adentro un bloque por categoría. Antes era una
+  //: tarjeta por lugar, y quien pedía tres turnos del mismo día aparecía tres
+  //: veces en pantallas separadas: no se alcanzaba a ver el día completo.
+  const tablero = [];
+  for (const d of dias) {
+    const bloques = [];
+    for (const g of ORDEN) {
+      const turnos = {};
+      let total = 0, puestos = 0;
+      for (const t of TRONCALES) {
+        const n = estado.cupos[kCupo(d.f,g,t)] || 0;
+        if (!n) continue;
+        const gente = dados(d.f,g,t);
+        turnos[t] = { n, gente, libres: Math.max(0, n - gente.length) };
+        total += n;
+        puestos += Math.min(n, gente.length);
+      }
+      if (!total) continue;
+
+      const admitidos = alcance(g, estado.ronda);
+      const gente = [];
+      for (const sig of Object.keys(porPersona)) {
+        const p = persona(sig);
+        if (!p || !admitidos.includes(p.c)) continue;
+
+        const pedidos = new Set(porPersona[sig].filter(q => q.f === d.f).map(q => q.t));
+        // Y también donde ya esté puesto, por si cambió de categoría después.
+        for (const t of Object.keys(turnos)) if (turnos[t].gente.includes(sig)) pedidos.add(t);
+
+        const chips = TRONCALES.filter(t => turnos[t] && pedidos.has(t)).map(t => {
+          const mio = turnos[t].gente.includes(sig);
+          return { t, mio, lleno: !mio && !turnos[t].libres,
+                   ...(mio ? { alerta:null, grave:false } : revisar(sig, d.f, t)) };
+        });
+        if (!chips.length) continue;
+
+        gente.push({ sig, nombre: p.n, categoria: p.c, deOtra: p.c !== g,
+                     horas: estado.horas[sig] ?? null, chips,
+                     tiene: chips.some(c => c.mio) });
+      }
+
+      // Menos horas primero. Quien no tenga horas anotadas va al final: no hay
+      // con qué compararlo.
+      gente.sort((a,b) => (a.horas === null) - (b.horas === null)
+                       || (a.horas ?? 0) - (b.horas ?? 0)
+                       || a.sig.localeCompare(b.sig));
+
+      bloques.push({ g, turnos, total, puestos, gente, admitidos,
+                     libres: total - puestos });
+    }
+    if (bloques.length) tablero.push({ ...d, bloques });
   }
 
-  const totalLugares = lugares.reduce((s,l) => s + l.cupos, 0);
-  const totalAsig = lugares.reduce((s,l) => s + l.ya.length, 0);
+  const totalLugares = tablero.reduce((s,d) => s + d.bloques.reduce((x,b) => x + b.total, 0), 0);
+  const totalAsig = tablero.reduce((s,d) => s + d.bloques.reduce((x,b) => x + b.puestos, 0), 0);
   $('#a-conteo').textContent =
     `Ronda ${estado.ronda} · ${totalAsig} de ${totalLugares} lugar(es) asignado(s)`;
 
-  const visibles = soloPend ? lugares.filter(l => l.libres > 0) : lugares;
+  const visibles = soloPend
+    ? tablero.map(d => ({ ...d, bloques: d.bloques.filter(b => b.libres > 0) }))
+             .filter(d => d.bloques.length)
+    : tablero;
+
   const cont = $('#a-lista');
   if (!visibles.length) {
     cont.innerHTML = `<p class="hueco">${soloPend
-      ? 'Todos los lugares están cubiertos.'
+      ? '✓ Todos los lugares están cubiertos.'
       : 'No hay lugares publicados. Vuelve al paso 1.'}</p>`;
     pintarMensajesAsignacion();
     return;
   }
 
-  cont.innerHTML = visibles.map(l => {
-    const clase = !l.candidatos.length ? 'nadie' : (l.libres > 0 ? 'pendiente' : 'completo');
-    const estado_ = !l.candidatos.length ? 'Nadie lo pidió'
-      : l.libres > 0 ? `Faltan ${l.libres} de ${l.cupos}` : `Cubierto (${l.cupos})`;
+  cont.innerHTML = visibles.map(d => {
+    const cupos = d.bloques.reduce((s,b) => s + b.total, 0);
+    const puestos = d.bloques.reduce((s,b) => s + b.puestos, 0);
+    const listo = puestos >= cupos;
 
-    const lista = l.candidatos.length ? `<ol>${l.candidatos.map((c,i) => `
-      <li class="${c.asignado ? 'ya' : (i === 0 && l.libres > 0 ? 'sugerido' : '')} ${c.grave ? 'grave' : ''}">
-        <span class="puesto">${c.asignado ? '✓' : i+1}</span>
-        <span class="quien">${esc(c.sig)}
-          ${c.deOtra ? `<span class="otra-cat">${TITULO[c.categoria]}</span>` : ''}
-          <small>${esc(nombreCorto(c.nombre))}</small>
-          ${c.alerta ? `<em>${esc(c.alerta)}</em>` : ''}</span>
-        <span class="horas ${c.horas === null ? 'falta' : ''}">
-          ${c.horas === null ? 'sin horas' : c.horas.toFixed(1)}
-          ${c.horas === null ? '' : '<small>trabajadas</small>'}</span>
-        <button class="btn mini ${c.asignado ? '' : (c.grave ? 'riesgo' : 'fuerte')}"
-                data-dar="${esc(c.sig)}" data-f="${l.f}" data-t="${l.t}"
-                data-grave="${c.grave ? '1' : ''}" data-alerta="${esc(c.alerta || '')}"
-                ${c.asignado ? 'disabled' : ''}>
-          ${c.asignado ? 'Asignado' : (c.grave ? 'Forzar' : 'Asignar')}</button>
-      </li>`).join('')}</ol>` : '<p class="sin-nadie">Nadie pidió este lugar.</p>';
+    const bloques = d.bloques.map(b => {
+      // Los lugares de esa categoría ese día, para verlos de un golpe.
+      const disponibles = TRONCALES.filter(t => b.turnos[t]).map(t => {
+        const x = b.turnos[t];
+        return `<span class="hueco-turno t-${t} ${x.libres ? '' : 'lleno'}">
+          <b>${t}</b> ${x.n - x.libres}/${x.n}</span>`;
+      }).join('');
 
-    return `<div class="lugar ${clase}">
+      const primero = b.gente.find(p => p.chips.some(c => !c.mio && !c.lleno && !c.grave));
+
+      const filas = b.gente.length ? b.gente.map((p,i) => `
+        <li class="${p.tiene ? 'ya' : ''} ${p === primero ? 'sugerido' : ''}">
+          <span class="puesto">${p.tiene ? '✓' : i+1}</span>
+          <span class="quien">${esc(p.sig)}
+            ${p.deOtra ? `<span class="otra-cat">${TITULO[p.categoria]}</span>` : ''}
+            <small>${esc(nombreCorto(p.nombre))}</small></span>
+          <span class="horas ${p.horas === null ? 'falta' : ''}">
+            ${p.horas === null ? 'sin horas' : p.horas.toFixed(1)}
+            ${p.horas === null ? '' : '<small>trabajadas</small>'}</span>
+          <span class="chips">${p.chips.map(c => `
+            <button class="chip-turno t-${c.t} ${c.mio ? 'dado' : c.lleno ? 'lleno' : 'libre'}
+                           ${c.grave ? 'riesgo' : ''}"
+                    data-sig="${esc(p.sig)}" data-f="${d.f}" data-g="${b.g}" data-t="${c.t}"
+                    data-modo="${c.mio ? 'quitar' : 'dar'}"
+                    data-grave="${c.grave ? '1' : ''}"
+                    data-alerta="${esc(c.alerta || '')}"
+                    ${c.lleno ? 'disabled' : ''}
+                    title="${c.mio ? `Quitar a ${esc(p.sig)} de ${c.t}`
+                          : c.lleno ? `Ya no hay lugar en ${c.t}`
+                          : c.alerta ? esc(c.alerta) : `Asignar ${c.t} a ${esc(p.sig)}`}">
+              ${c.t}${c.mio ? '<i>×</i>' : ''}${c.grave && !c.mio ? '<em>!</em>' : ''}
+            </button>`).join('')}</span>
+        </li>`).join('') : '';
+
+      return `<div class="bloque-cat ${b.libres ? '' : 'cubierto'}">
+        <div class="cab-cat">
+          <b>${TITULO[b.g]}</b>
+          <span class="huecos">${disponibles}</span>
+          ${b.admitidos.length > 1
+            ? `<span class="abierto-a">abierto a ${b.admitidos.map(x => TITULO[x]).join(' + ')}</span>`
+            : ''}
+          <span class="estado">${b.libres ? `Faltan ${b.libres}` : 'Completo'}</span>
+        </div>
+        ${filas ? `<ol>${filas}</ol>`
+                : '<p class="sin-nadie">Nadie de esta categoría lo pidió.</p>'}
+      </div>`;
+    }).join('');
+
+    return `<article class="dia-asig ${listo ? 'listo' : ''}">
       <header>
-        <span class="cuando">${l.d} ${l.t} <small>${l.largo}</small></span>
-        <span class="grupo-eti">${esc(GRUPOS[l.g])}</span>
-        ${l.admitidos.length > 1
-          ? `<span class="abierto-a">abierto a ${l.admitidos.map(x => TITULO[x]).join(' + ')}</span>`
-          : ''}
-        <span class="estado">${estado_}</span>
-      </header>${lista}</div>`;
+        <span class="num">${d.d}</span>
+        <span class="dow">${d.largo}</span>
+        <span class="avance">${puestos} de ${cupos}</span>
+      </header>
+      ${bloques}
+    </article>`;
   }).join('');
 
-  $$('[data-dar]', cont).forEach(b => b.addEventListener('click', () => {
-    if (b.dataset.grave && !confirm(`${b.dataset.alerta}.\n\n¿Asignarlo de todos modos?`)) return;
-    const k = kAsig(b.dataset.f, b.dataset.t);
-    const lista = estado.asignados[k] = estado.asignados[k] || [];
-    if (!lista.includes(b.dataset.dar)) lista.push(b.dataset.dar);
-    guardar();
-    avisar(b.dataset.alerta
-      ? `${b.dataset.dar} asignado. ${b.dataset.alerta}.`
-      : `${b.dataset.dar} asignado el ${Number(b.dataset.f.slice(8))} en ${b.dataset.t}`,
-      b.dataset.alerta ? 'ojo' : 'ok', b.dataset.alerta ? 6500 : 3500);
+  $$('[data-modo]', cont).forEach(b => b.addEventListener('click', () => {
+    const { sig, f, g, t, modo, alerta } = b.dataset;
+    const k = kAsig(f,g,t);
+    const dia = Number(f.slice(8));
+
+    if (modo === 'quitar') {
+      estado.asignados[k] = dados(f,g,t).filter(x => x !== sig);
+      if (!estado.asignados[k].length) delete estado.asignados[k];
+      guardar();
+      avisar(`${sig} ya no tiene el ${dia} en ${t}. El lugar vuelve a estar libre.`);
+    } else {
+      if (b.dataset.grave && !confirm(`${alerta}.\n\n¿Asignarlo de todos modos?`)) return;
+      (estado.asignados[k] ||= []).push(sig);
+      guardar();
+      avisar(alerta ? `${sig} asignado. ${alerta}.` : `${sig} asignado el ${dia} en ${t}`,
+             alerta ? 'ojo' : 'ok', alerta ? 6500 : 3500);
+    }
     pintarSugerencias();
   }));
 
@@ -1344,7 +1493,7 @@ function pintarMensajesAsignacion() {
   const fechas = new Set(ventana().map(d => d.f));
   const porGrupo = {};
   for (const [k, lista] of Object.entries(estado.asignados)) {
-    const [f, t] = k.split('|');
+    const [f, , t] = k.split('|');
     if (!fechas.has(f)) continue;
     for (const sig of lista) {
       const p = persona(sig);
@@ -1384,8 +1533,7 @@ function estadoDeLugares() {
   for (const d of ventana()) for (const g of ORDEN) for (const t of TRONCALES) {
     const cupos = estado.cupos[kCupo(d.f,g,t)] || 0;
     if (!cupos) continue;
-    const gente = (estado.asignados[kAsig(d.f,t)] || [])
-      .filter(sig => persona(sig) && persona(sig).c === g);
+    const gente = dados(d.f,g,t);
     salida.push({ ...d, g, t, cupos, gente, libres: Math.max(0, cupos - gente.length),
                   admitidos: alcance(g, estado.ronda) });
   }
