@@ -106,7 +106,10 @@ code { font:.9em var(--mono); }
   font-size:15px; line-height:1; }
 .icono:hover { border-color:var(--line-firm); }
 
-main { padding:16px 20px 50px; }
+/* En un monitor ancho, sin tope, el nombre queda en una orilla y las horas en
+   la otra: hay que barrer la pantalla con la vista para leer un renglón. */
+main { padding:16px 20px 50px; max-width:1280px; margin:0 auto; }
+.cab { padding-left:max(20px, calc((100vw - 1280px) / 2)); }
 .vista[hidden] { display:none; }
 
 /* ---------- Controles ---------- */
@@ -247,6 +250,26 @@ table.tabla tr.grupo td { background:var(--surface-2); font:800 11px var(--ui);
 input.horas-capt { width:110px; text-align:right; font:650 14px var(--mono);
   font-variant-numeric:tabular-nums; }
 
+/* Botón para abrir esos mismos lugares a otro grupo. Se esconde como los
+   steppers: sólo sale al pasar el cursor, o si ya está compartido. */
+.compartir { display:block; margin:1px auto 0; padding:0 5px; height:15px;
+  border:1px solid transparent; border-radius:5px; background:none; cursor:pointer;
+  font:700 9.5px var(--mono); color:var(--ink-soft); opacity:0;
+  transition:opacity .12s; }
+table.matriz td:hover .compartir, .compartir:focus-visible { opacity:1; }
+.compartir:hover { border-color:var(--line-firm); color:var(--ink); }
+.compartir.activo { opacity:1; color:var(--accent); border-color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 10%, transparent); }
+table.matriz td.compartida { box-shadow:inset 0 0 0 1.5px
+  color-mix(in srgb, var(--accent) 45%, transparent); }
+
+.grupos-compartir { display:flex; flex-direction:column; gap:4px; margin-bottom:14px; }
+.check.grande { flex-direction:row; align-items:center; gap:9px; padding:9px 11px;
+  border:1px solid var(--line); border-radius:9px; cursor:pointer; font-size:13.5px; }
+.check.grande:hover { border-color:var(--line-firm); background:var(--surface-2); }
+.check.grande small { display:block; font-size:11px; color:var(--ink-soft);
+  font-weight:400; }
+
 /* ---------- Paso 4: un día por tarjeta, adentro las categorías ---------- */
 .dia-asig { border:1px solid var(--line); border-radius:12px; margin-bottom:14px;
   overflow:hidden; background:var(--surface); box-shadow:var(--shadow); }
@@ -278,6 +301,8 @@ input.horas-capt { width:110px; text-align:right; font:650 14px var(--mono);
 .hueco-turno.t-K { background:var(--k-bg); color:var(--k-ink); border-color:var(--k-line); }
 .hueco-turno.t-O { background:var(--o-bg); color:var(--o-ink); border-color:var(--o-line); }
 .hueco-turno.lleno { opacity:.5; }
+.hueco-turno.compartido { border-style:dashed; border-width:1.5px; }
+.hueco-turno i { font-style:normal; font-weight:800; opacity:.75; }
 
 .bloque-cat ol { list-style:none; margin:0; padding:4px 14px 10px; }
 .bloque-cat ol li { display:flex; align-items:center; gap:10px; padding:7px 0;
@@ -288,7 +313,10 @@ input.horas-capt { width:110px; text-align:right; font:650 14px var(--mono);
   background:var(--line); color:var(--ink-soft); }
 .bloque-cat ol li.sugerido .puesto { background:var(--ok); color:#fff; }
 .bloque-cat ol li.ya .puesto { background:var(--accent); color:var(--accent-ink); }
-.bloque-cat ol li .quien { flex:1; min-width:0; font-size:13.5px; font-weight:650; }
+.bloque-cat ol li .quien { flex:0 1 auto; min-width:0; font-size:13.5px;
+  font-weight:650; margin-right:auto; padding-right:24px; }
+/* Horas y turnos viajan juntos, pegados a la derecha pero como un solo bloque. */
+.bloque-cat ol li .horas + .chips { margin-left:2px; }
 .bloque-cat ol li .quien small { display:block; font-weight:400; font-size:11.5px;
   color:var(--ink-soft); }
 .bloque-cat ol li .horas { font:750 14px var(--mono); font-variant-numeric:tabular-nums;
@@ -411,10 +439,10 @@ input.horas-capt { width:110px; text-align:right; font:650 14px var(--mono);
 .caja > header .escalado { margin-left:0; padding:1px 7px; border-radius:20px;
   font:700 10.5px var(--ui); background:var(--warn-bg); color:var(--warn);
   border:1px solid var(--warn); }
-.lugar ol li .quien .otra-cat { display:inline-block; margin-left:6px; padding:0 6px;
-  border-radius:20px; font:700 10px var(--ui); vertical-align:1px;
+.bloque-cat ol li .quien .otra-cat { display:inline-block; margin-left:7px;
+  padding:1px 7px; border-radius:20px; font:700 10px var(--ui); vertical-align:1px;
+  letter-spacing:.02em; text-transform:uppercase;
   background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn); }
-.lugar > header .abierto-a { font-size:11px; color:var(--ink-soft); }
 .explica-ronda { font-size:12.5px; color:var(--ink-soft); margin:0 0 12px;
   padding:9px 12px; border-radius:9px; background:var(--surface-2);
   border-left:3px solid var(--accent); max-width:80ch; }
@@ -508,6 +536,11 @@ input.horas-capt { width:110px; text-align:right; font:650 14px var(--mono);
       Pasa el cursor por una casilla y salen los botones <b>−</b> y <b>+</b> para
       subir o bajar con el mouse. También puedes teclear el número, y moverte por
       la columna con las flechas ↑ ↓.
+    </p>
+    <p class="nota">
+      ¿Los mismos lugares van para dos grupos? Pulsa <b>⇄</b> debajo del número y
+      elige a quién más se le ofrecen. <b>No se duplican</b>: si son 2 siguen
+      siendo 2, y los cubre quien llegue primero de cualquiera de los grupos.
     </p>
     <div class="linea">
       <label class="campo"><span class="rotulo">Desde</span>
@@ -744,6 +777,25 @@ function alcance(categoria, ronda) {
 const puedeCubrir = (dePersona, deLugar) =>
   JERARQUIA.indexOf(dePersona) >= JERARQUIA.indexOf(deLugar);
 
+//: Inicial de cada grupo, para etiquetas apretadas.
+const INICIAL = { SUPERVISOR:'S', ATCO:'T', AUX:'A' };
+
+/**
+ * A qué grupos se ofrece ese lugar en concreto.
+ *
+ * Es el alcance de la ronda más lo que se haya abierto a mano. Resuelve el caso
+ * de «hay 2 lugares el 18 en C y los publico en torre y en aux»: son 2, no 2
+ * más 2, y los cubre quien llegue de cualquiera de los dos grupos.
+ */
+function alcanceDe(f, g, t, ronda) {
+  const juntos = new Set([...alcance(g, ronda), ...(estado.tambien[kCupo(f,g,t)] || [])]);
+  return ORDEN.filter(x => juntos.has(x));
+}
+
+/** Los grupos abiertos a mano, sin contar el de la propia categoría. */
+const compartidoCon = (f, g, t) =>
+  (estado.tambien[kCupo(f,g,t)] || []).filter(x => x !== g);
+
 const ENCABEZADO_OTRA = 'TX disponible aún de otra categoría:';
 const SALUDOS_RONDA = {
   1: 'Buen día, TX disponible:',
@@ -764,7 +816,7 @@ const CLAVE_INICIAL = '0348';
 
 //: Todo lo capturado vive aquí y se escribe completo en cada cambio. Es poca
 //: cosa —unos cuantos kilobytes— así que no vale la pena guardar por partes.
-let estado = { cupos:{}, peticiones:{}, horas:{}, asignados:{},
+let estado = { cupos:{}, peticiones:{}, horas:{}, asignados:{}, tambien:{},
                personal:null, clave:CLAVE_INICIAL, ronda:1,
                desde:null, dias:7 };
 
@@ -780,7 +832,8 @@ function cargar() {
     const crudo = localStorage.getItem(CLAVE);
     if (crudo) estado = { ...estado, ...JSON.parse(crudo) };
   } catch { /* si el navegador lo bloquea, se trabaja en memoria */ }
-  for (const k of ['cupos','peticiones','horas','asignados']) estado[k] = estado[k] || {};
+  for (const k of ['cupos','peticiones','horas','asignados','tambien'])
+    estado[k] = estado[k] || {};
   if (!Array.isArray(estado.personal)) estado.personal = PERSONAL_INICIAL.map(p => ({ ...p }));
   if (!estado.clave) estado.clave = CLAVE_INICIAL;
   if (!ESCALONES[estado.ronda]) estado.ronda = 1;
@@ -945,7 +998,8 @@ function pintarMatriz() {
     const celdas = ORDEN.map(g => TRONCALES.map((t,i) => {
       const v = cupos[kCupo(d.f,g,t)] || '';
       const et = `${TITULO[g]} en turno ${t} el ${d.d}`;
-      return `<td class="${i===2?'corte':''}"><div class="paso-num">
+      const con = compartidoCon(d.f, g, t);
+      return `<td class="${i===2?'corte':''} ${con.length?'compartida':''}"><div class="paso-num">
         <button type="button" class="paso-btn" data-delta="-1" tabindex="-1"
                 aria-label="Un lugar menos de ${et}">−</button>
         <input type="number" class="cupo ${v?'puesto':''}" min="0" max="20" placeholder="·"
@@ -953,7 +1007,15 @@ function pintarMatriz() {
                aria-label="Lugares de ${et}">
         <button type="button" class="paso-btn" data-delta="1" tabindex="-1"
                 aria-label="Un lugar más de ${et}">+</button>
-      </div></td>`;
+      </div>
+      <button type="button" class="compartir ${con.length?'activo':''}" tabindex="-1"
+              data-comp="${d.f}|${g}|${t}" ${v ? '' : 'hidden'}
+              title="${con.length
+                ? `Estos lugares también se ofrecen a ${con.map(x => TITULO[x]).join(' y ')}`
+                : 'Ofrecer estos mismos lugares a otro grupo'}"
+              aria-label="Compartir los lugares de ${et}">
+        ${con.length ? '+' + con.map(x => INICIAL[x]).join('') : '⇄'}
+      </button></td>`;
     }).join('')).join('');
     const total = ORDEN.reduce((s,g) => s + TRONCALES.reduce((x,t) =>
       x + (cupos[kCupo(d.f,g,t)]||0), 0), 0);
@@ -995,16 +1057,94 @@ function pintarMatriz() {
     const campo = $('input.cupo', b.parentElement);
     fijarCupo(campo, (Number(campo.value)||0) + Number(b.dataset.delta));
   }));
+  $$('#p-matriz .compartir').forEach(b =>
+    b.addEventListener('click', () => modalCompartir(...b.dataset.comp.split('|'))));
+}
+
+/**
+ * Abre esos mismos lugares a otros grupos.
+ *
+ * No crea lugares nuevos: los que ya hay se ofrecen además a quien se marque, y
+ * los cubre el primero que llegue de cualquiera de los grupos.
+ */
+function modalCompartir(f, g, t) {
+  const k = kCupo(f,g,t);
+  const cuantos = estado.cupos[k] || 0;
+  const dia = Number(f.slice(8));
+  const marcados = new Set(estado.tambien[k] || []);
+  const porRonda = alcance(g, estado.ronda).filter(x => x !== g);
+
+  const casillas = ORDEN.filter(x => x !== g).map(x => `
+    <label class="check grande">
+      <input type="checkbox" data-grupo="${x}" ${marcados.has(x) ? 'checked' : ''}>
+      <span>${TITULO[x]}
+        ${porRonda.includes(x)
+          ? '<small>ya lo ve por la ronda ' + estado.ronda + '</small>' : ''}</span>
+    </label>`).join('');
+
+  abrirPanel(`
+    <button class="cerrar" id="co-cerrar" aria-label="Cerrar">×</button>
+    <h3>Compartir estos lugares</h3>
+    <p class="sub"><b>${cuantos} lugar(es)</b> de ${TITULO[g]},
+      el <b>${dia}</b> en <b>${t}</b>.</p>
+
+    <p class="nota">Márcalos y esos mismos lugares se publican también en los
+      grupos que elijas. <b>Siguen siendo ${cuantos}</b>: no se duplican, y los
+      cubre quien llegue primero de cualquiera de los grupos.</p>
+
+    <div class="grupos-compartir">${casillas}</div>
+
+    <p class="nota" id="co-resumen"></p>
+
+    <div class="acciones">
+      <button class="btn" id="co-cancelar">Cancelar</button>
+      <button class="btn fuerte" id="co-guardar">Guardar</button>
+    </div>`);
+
+  const resumir = () => {
+    const puestos = $$('[data-grupo]').filter(c => c.checked).map(c => c.dataset.grupo);
+    const todos = ORDEN.filter(x => x === g || puestos.includes(x));
+    $('#co-resumen').innerHTML = puestos.length
+      ? `Se publicarán en <b>${todos.map(x => TITULO[x]).join(', ')}</b>,
+         y en total seguirán siendo <b>${cuantos}</b>.`
+      : `Sólo en <b>${TITULO[g]}</b>, como cualquier otro lugar.`;
+  };
+  $$('[data-grupo]').forEach(c => c.addEventListener('change', resumir));
+  resumir();
+
+  $('#co-cerrar').addEventListener('click', cerrarPanel);
+  $('#co-cancelar').addEventListener('click', cerrarPanel);
+  $('#co-guardar').addEventListener('click', () => {
+    const puestos = $$('[data-grupo]').filter(c => c.checked).map(c => c.dataset.grupo);
+    if (puestos.length) estado.tambien[k] = ORDEN.filter(x => puestos.includes(x));
+    else delete estado.tambien[k];
+    guardar();
+    cerrarPanel();
+    pintarMatriz();
+    pintarMensajesPublicacion();
+    avisar(puestos.length
+      ? `Los ${cuantos} lugar(es) del ${dia} en ${t} ahora también se ofrecen a `
+        + puestos.map(x => TITULO[x]).join(' y ')
+      : `Los lugares del ${dia} en ${t} vuelven a ser sólo de ${TITULO[g]}`);
+  });
 }
 
 /** Cambia una casilla sin repintar la tabla, para no perder el cursor. */
 function fijarCupo(campo, crudo) {
   const n = Math.max(0, Math.min(20, Number(crudo) || 0));
   const k = kCupo(campo.dataset.f, campo.dataset.g, campo.dataset.t);
-  if (n) estado.cupos[k] = n; else delete estado.cupos[k];
+  if (n) estado.cupos[k] = n;
+  else { delete estado.cupos[k]; delete estado.tambien[k]; }
   guardar();
   campo.value = n || '';
   campo.classList.toggle('puesto', n > 0);
+  // El botón de compartir sólo tiene sentido si hay lugares que compartir.
+  const comp = $('.compartir', campo.closest('td'));
+  if (comp) {
+    comp.hidden = !n;
+    if (!n) { comp.classList.remove('activo'); comp.textContent = '⇄';
+              campo.closest('td').classList.remove('compartida'); }
+  }
   recalcularTotales();
   pintarMensajesPublicacion();
 }
@@ -1069,7 +1209,7 @@ function pintarMensajesPublicacion() {
 
   const propias = {}, otras = {};
   for (const v of faltantes()) {
-    for (const grupo of alcance(v.g, ronda)) {
+    for (const grupo of alcanceDe(v.f, v.g, v.t, ronda)) {
       const destino = grupo === v.g ? propias : otras;
       ((destino[grupo] = destino[grupo] || {})[v.f] ||= {})[v.t] = v.cupos;
     }
@@ -1350,7 +1490,12 @@ function pintarSugerencias() {
       }
       if (!total) continue;
 
-      const admitidos = alcance(g, estado.ronda);
+      // Cada turno puede estar compartido con grupos distintos, así que el
+      // alcance se resuelve turno por turno y no de una vez para el bloque.
+      const admitidosDe = {};
+      for (const t of Object.keys(turnos)) admitidosDe[t] = alcanceDe(d.f, g, t, estado.ronda);
+      const admitidos = ORDEN.filter(x => Object.values(admitidosDe).some(a => a.includes(x)));
+
       const gente = [];
       for (const sig of Object.keys(porPersona)) {
         const p = persona(sig);
@@ -1360,7 +1505,8 @@ function pintarSugerencias() {
         // Y también donde ya esté puesto, por si cambió de categoría después.
         for (const t of Object.keys(turnos)) if (turnos[t].gente.includes(sig)) pedidos.add(t);
 
-        const chips = TRONCALES.filter(t => turnos[t] && pedidos.has(t)).map(t => {
+        const chips = TRONCALES.filter(t => turnos[t] && pedidos.has(t)
+            && (admitidosDe[t].includes(p.c) || turnos[t].gente.includes(sig))).map(t => {
           const mio = turnos[t].gente.includes(sig);
           return { t, mio, lleno: !mio && !turnos[t].libres,
                    ...(mio ? { alerta:null, grave:false } : revisar(sig, d.f, t)) };
@@ -1412,8 +1558,14 @@ function pintarSugerencias() {
       // Los lugares de esa categoría ese día, para verlos de un golpe.
       const disponibles = TRONCALES.filter(t => b.turnos[t]).map(t => {
         const x = b.turnos[t];
-        return `<span class="hueco-turno t-${t} ${x.libres ? '' : 'lleno'}">
-          <b>${t}</b> ${x.n - x.libres}/${x.n}</span>`;
+        const con = compartidoCon(d.f, b.g, t);
+        return `<span class="hueco-turno t-${t} ${x.libres ? '' : 'lleno'}
+                             ${con.length ? 'compartido' : ''}"
+                      title="${con.length
+                        ? `Los mismos lugares se ofrecen también a ${con.map(y => TITULO[y]).join(' y ')}`
+                        : ''}">
+          <b>${t}</b> ${x.n - x.libres}/${x.n}${con.length
+            ? '<i>+' + con.map(y => INICIAL[y]).join('') + '</i>' : ''}</span>`;
       }).join('');
 
       const primero = b.gente.find(p => p.chips.some(c => !c.mio && !c.lleno && !c.grave));
@@ -1535,7 +1687,7 @@ function estadoDeLugares() {
     if (!cupos) continue;
     const gente = dados(d.f,g,t);
     salida.push({ ...d, g, t, cupos, gente, libres: Math.max(0, cupos - gente.length),
-                  admitidos: alcance(g, estado.ronda) });
+                  admitidos: alcanceDe(d.f, g, t, estado.ronda) });
   }
   return salida;
 }
@@ -1670,9 +1822,10 @@ function meterRespaldo(crudo) {
   if (!nuevo || typeof nuevo !== 'object' || !('cupos' in nuevo))
     return 'El archivo no trae datos de tiempo extra.';
 
-  estado = { cupos:{}, peticiones:{}, horas:{}, asignados:{},
+  estado = { cupos:{}, peticiones:{}, horas:{}, asignados:{}, tambien:{},
              personal:null, clave:CLAVE_INICIAL, ronda:1, ...nuevo };
-  for (const k of ['cupos','peticiones','horas','asignados']) estado[k] = estado[k] || {};
+  for (const k of ['cupos','peticiones','horas','asignados','tambien'])
+    estado[k] = estado[k] || {};
   if (!Array.isArray(estado.personal)) estado.personal = PERSONAL_INICIAL.map(p => ({ ...p }));
   if (!ESCALONES[estado.ronda]) estado.ronda = 1;
   PERSONAL = estado.personal;
@@ -1893,7 +2046,8 @@ function modalPersona(siglas) {
 
 //: Qué borra cada casilla y qué se conserva por omisión.
 const LIMPIABLE = [
-  { clave:'cupos',      etiqueta:'Lugares publicados',    porDefecto:true  },
+  { clave:'cupos',      etiqueta:'Lugares publicados',    porDefecto:true,
+    arrastra:['tambien'] },
   { clave:'peticiones', etiqueta:'Solicitudes capturadas', porDefecto:true  },
   { clave:'asignados',  etiqueta:'Asignaciones hechas',    porDefecto:true  },
   { clave:'horas',      etiqueta:'Horas capturadas',       porDefecto:true  },
@@ -1981,7 +2135,12 @@ function modalLimpiar() {
     for (const g of grupos) {
       total += cuantosHay(g);
       if (g === 'personal') PERSONAL.length = 0;
-      else estado[g] = {};
+      else {
+        estado[g] = {};
+        // Con qué grupos se comparte un lugar no sobrevive al lugar mismo.
+        for (const otro of (LIMPIABLE.find(x => x.clave === g).arrastra || []))
+          estado[otro] = {};
+      }
     }
     if ($('#lim-ronda').checked) estado.ronda = 1;
     guardar();

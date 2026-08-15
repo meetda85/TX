@@ -81,6 +81,15 @@ Los cupos van entre paréntesis sólo cuando hay más de un lugar, y en cuanto u
 turno lleva cupo el día se desglosa renglón por renglón — así lo escriben en
 los grupos y así se relee sin ambigüedad.
 
+**Lugares compartidos entre grupos.** A veces los mismos lugares se publican en
+dos grupos a la vez: hay 2 el 18 en C y se anuncian en torre y en auxiliares,
+porque los cubre cualquiera de los dos. Capturarlos como 2 y 2 daría 4, que no
+es lo que hay. El botón **⇄** debajo de la casilla los abre a los grupos que
+elijas **sin duplicarlos**: siguen siendo 2, salen en los dos mensajes, y en
+cuanto alguien toma uno se descuenta del mismo bote y deja de republicarse en
+ambos lados. La casilla queda marcada con `+A` o `+T` según con quién se
+comparte.
+
 ### 2 · Solicitudes
 
 Se capturan a mano, persona por persona: tecleas las siglas y luego lo que
@@ -115,6 +124,10 @@ los lugares que hay ese día y cómo van (`C 1/2`, `K 0/1`), y sigue con **todos
 los que pidieron ese día**, ordenados de menos a más horas trabajadas. El
 primero de cada lista es la sugerencia; quien no tenga horas capturadas va al
 final, porque no hay con qué compararlo.
+
+Cuando un turno está compartido con otro grupo, su contador lo dice (`C 0/2 +A`)
+y en la lista aparecen los candidatos de las dos categorías, con una etiqueta
+que marca a los de fuera.
 
 Cada persona ocupa **un solo renglón por día**, con los turnos que pidió como
 botones. Pulsas el turno y queda asignado; **vuelves a pulsarlo y se quita**,
