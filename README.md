@@ -18,6 +18,11 @@ Doble clic en **[`Tiempo Extra.html`](Tiempo%20Extra.html)** y listo. Se abre en
 Chrome o Edge y ya está funcionando: no hace falta Python, ni permisos de
 administrador, ni internet.
 
+Si quieres que se vea como un programa —icono TX en el Escritorio, ventana propia
+sin barra de direcciones— pon `TX.ico` y `Crear acceso directo.bat` junto al HTML
+y da doble clic en el `.bat` una sola vez. No instala nada; sólo crea el acceso
+directo. A mano funciona igual: clic derecho → *Enviar a* → *Escritorio*.
+
 Lo capturado se guarda solo en la memoria del navegador de esa computadora, así
 que **saca una copia con el botón «Respaldo»** al terminar cada asignación: baja
 un archivo `.json` con todo, que sirve para resguardar o para pasarlo a otra

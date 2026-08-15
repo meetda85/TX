@@ -25,6 +25,31 @@ Funciona en cualquier computadora con Chrome o Edge (los dos ya vienen
 en Windows). Tambien en Mac.
 
 
+  PARA QUE SE VEA COMO UN PROGRAMA
+  --------------------------------
+  Opcional. Deja un icono TX en el Escritorio que abre el sistema en su
+  propia ventana, sin barra de direcciones ni pestañas.
+
+  Pon estos tres archivos en la misma carpeta:
+
+      Tiempo Extra.html
+      TX.ico
+      Crear acceso directo.bat
+
+  y da doble clic en "Crear acceso directo.bat". Se corre una sola vez.
+  No instala nada ni pide permisos de administrador.
+
+  Si el equipo no deja correr PowerShell, hazlo a mano:
+
+      Clic derecho sobre "Tiempo Extra.html"
+      > "Enviar a" > "Escritorio (crear acceso directo)"
+
+  Queda igual, nada mas que abre en una pestaña normal.
+
+  OJO: si mueves la carpeta de lugar, vuelve a correr el .bat para que
+  el acceso directo apunte al lugar nuevo.
+
+
   DONDE QUEDAN LOS DATOS
   ----------------------
   Lo que capturas se guarda solo, en la memoria del navegador de esa
