@@ -134,9 +134,21 @@ botones. Pulsas el turno y queda asignado; **vuelves a pulsarlo y se quita**,
 con el lugar de regreso a la lista de libres. Cuando un turno se llena, a los
 demás se les desactiva ese botón.
 
-Si hay horario cargado, se avisa de los choques (que ya trae ese turno, que
-juntaría dos turnos el mismo día, que serían tres jornadas dobles seguidas).
-El aviso no bloquea: la decisión es del supervisor.
+**Los avisos.** El renglón se marca —y destella al asignar— cuando algo no
+cuadra, de más a menos grave:
+
+| Aviso | Qué es |
+|---|---|
+| Ya tiene ese turno ese día | Duplicado |
+| Serían 3 jornadas dobles seguidas | La regla dura: tres días encadenando dos turnos |
+| Serían 3 días seguidos con TX | Tiempo extra tres días al hilo, del tamaño que sea |
+
+El tercero no está prohibido, pero es justo lo que se pasa de noche si nadie lo
+suma. Sale **antes** de pulsar, no después.
+
+Ninguno bloquea: la decisión es del supervisor. Y todos ven sólo lo que este
+sistema tiene asignado — si alguien recibió tiempo extra por fuera, o viene de
+un turno del rol, eso no aparece.
 
 Abajo, antes del mensaje, **«Lo que quedó asignado»**: un renglón por
 asignación —siglas, nombre, día, turno, categoría— ordenado por siglas, que es
@@ -148,6 +160,14 @@ hace bien:
   copia la tabla con tabuladores: al pegarla cae una celda por columna.
 - **Corregir.** Cada renglón trae su **×** para deshacer esa asignación sin
   tener que ir a buscarla entre las tarjetas de arriba.
+
+Cada renglón lleva además su **nota**: por qué se le dio a esa persona. Se
+escribe en un clic y se copia junto con lo demás, así que cuando pregunten hay
+respuesta en vez de tener que acordarse.
+
+Debajo, **«Notas de esta asignación»** es la libreta de la semana entera —los
+acuerdos, quién no podía, qué se cambió a última hora—. Se guarda sola mientras
+escribes y va en el respaldo.
 
 Y al final sí, el mensaje de asignación listo para copiar con su `Pls ack`.
 

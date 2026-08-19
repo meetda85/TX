@@ -300,6 +300,17 @@ table.tabla.asignados td.dia small { font:400 11px var(--ui); color:var(--ink-so
   margin-left:3px; text-transform:capitalize; }
 table.tabla.asignados td.cat { font-size:12px; color:var(--ink-soft); }
 table.tabla.asignados td.acc { width:44px; text-align:right; }
+table.tabla.asignados td.cel-nota { max-width:300px; }
+.nota-btn { max-width:300px; text-align:left; padding:4px 9px; border-radius:7px;
+  border:1px dashed var(--line-firm); background:none; cursor:pointer;
+  font:400 12px var(--ui); color:var(--ink-soft); line-height:1.35;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  overflow:hidden; }
+.nota-btn:hover { border-color:var(--accent); color:var(--accent); }
+.nota-btn.tiene { border-style:solid; border-color:var(--line);
+  background:var(--surface-2); color:var(--ink); }
+
+#a-bitacora { width:100%; resize:vertical; }
 /* Una línea marca dónde empieza cada persona, sin repetir su nombre. */
 table.tabla.asignados tr.abre td { border-top:1px solid var(--line-firm); }
 table.tabla.asignados tr:first-child td { border-top:0; }
@@ -358,6 +369,36 @@ table.tabla.asignados tr:first-child td { border-top:0; }
 .bloque-cat ol li .horas small { display:block; font:400 10px var(--ui); color:var(--ink-soft); }
 .bloque-cat ol li .horas.falta { color:var(--warn); font:600 12px var(--ui); }
 .bloque-cat .sin-nadie { padding:6px 14px 12px; font-size:12.5px; color:var(--ink-soft); }
+
+/* Avisos de la regla, en el renglón de la persona. */
+.bloque-cat ol li .quien em { display:block; font-style:normal; font-size:11.5px;
+  font-weight:650; color:var(--warn); margin-top:3px; }
+.bloque-cat ol li.grave .quien em { color:var(--crit); }
+.bloque-cat ol li .quien .seguidos { display:inline-block; margin-left:7px;
+  padding:1px 7px; border-radius:20px; font:800 10px var(--ui); vertical-align:1px;
+  letter-spacing:.02em; background:var(--crit-bg); color:var(--crit);
+  border:1px solid var(--crit); }
+.bloque-cat ol li.ojo { background:color-mix(in srgb, var(--warn) 7%, transparent);
+  box-shadow:inset 3px 0 0 var(--warn); }
+.bloque-cat ol li.grave { background:color-mix(in srgb, var(--crit) 8%, transparent);
+  box-shadow:inset 3px 0 0 var(--crit); }
+.bloque-cat ol li.ojo, .bloque-cat ol li.grave { padding-left:11px; margin-left:-11px;
+  border-radius:0 7px 7px 0; }
+.bloque-cat ol li.ojo .puesto { background:var(--warn-bg); color:var(--warn); }
+.bloque-cat ol li.grave .puesto { background:var(--crit-bg); color:var(--crit); }
+
+/* El destello al asignar algo que rompe la cuenta: dos parpadeos y se calma,
+   para que no quede una pantalla nerviosa. */
+@keyframes destello {
+  0%,100% { background:transparent; }
+  15%,55% { background:color-mix(in srgb, var(--crit) 30%, transparent); }
+  35%,75% { background:transparent; }
+}
+.bloque-cat ol li.destella { animation:destello 1.4s ease 2; }
+@media (prefers-reduced-motion:reduce) {
+  .bloque-cat ol li.destella { animation:none;
+    box-shadow:inset 4px 0 0 var(--crit), 0 0 0 2px var(--crit); }
+}
 
 /* Un botón por turno pedido: se pulsa para dar el lugar y se vuelve a pulsar
    para quitarlo. Es el mismo lugar en los dos sentidos, así que es un interruptor. */
@@ -712,6 +753,18 @@ table.tabla.asignados tr:first-child td { border-top:0; }
   </div>
 
   <div class="tarjeta">
+    <h2>Notas de esta asignación</h2>
+    <p class="nota">
+      Por qué quedó como quedó: los acuerdos, quién no podía, qué se cambió a
+      última hora. Cuando alguien pregunte, aquí está la respuesta en vez de
+      tener que acordarse. Se guarda solo y va en el respaldo.
+    </p>
+    <textarea id="a-bitacora" rows="5"
+      placeholder="Ej. El 18 en C se le dio a VG y no a CT porque CT venía de dos dobles seguidas.&#10;JJ pidió los tres días pero avisó que sólo podía el primero."></textarea>
+    <p class="nota" id="a-bitacora-estado" style="min-height:17px"></p>
+  </div>
+
+  <div class="tarjeta">
     <h2>Mensajes de asignación</h2>
     <p class="nota">Uno por grupo, con su acuse, listos para copiar y pegar.</p>
     <div id="a-mensajes" class="cajas"></div>
@@ -807,6 +860,10 @@ const TITULO = { SUPERVISOR:'Supervisores', ATCO:'ATCO (TWR)', AUX:'Auxiliares' 
 const DIAS_LARGOS = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo'];
 //: Máximo de días seguidos con tiempo extra antes de avisar.
 const MAX_DIAS_SEGUIDOS = 2;
+//: Y el mismo tope, pero contando días con tiempo extra de cualquier tamaño.
+//: No es que esté prohibido; es que tres seguidos se pasan de noche si nadie
+//: los suma, y de eso sí puede darse cuenta el programa.
+const MAX_DIAS_SEGUIDOS_TX = 2;
 
 //: Escalafón de menor a mayor alcance. Quien está arriba cubre lo de abajo,
 //: nunca al revés: un auxiliar no puede tomar un lugar de torre.
@@ -878,6 +935,7 @@ const CLAVE_INICIAL = '0348';
 //: Todo lo capturado vive aquí y se escribe completo en cada cambio. Es poca
 //: cosa —unos cuantos kilobytes— así que no vale la pena guardar por partes.
 let estado = { cupos:{}, peticiones:{}, horas:{}, asignados:{}, tambien:{},
+               notas:{}, bitacora:'',
                personal:null, clave:CLAVE_INICIAL, ronda:1,
                desde:null, dias:7 };
 
@@ -893,7 +951,7 @@ function cargar() {
     const crudo = localStorage.getItem(CLAVE);
     if (crudo) estado = { ...estado, ...JSON.parse(crudo) };
   } catch { /* si el navegador lo bloquea, se trabaja en memoria */ }
-  for (const k of ['cupos','peticiones','horas','asignados','tambien'])
+  for (const k of ['cupos','peticiones','horas','asignados','tambien','notas'])
     estado[k] = estado[k] || {};
   if (!Array.isArray(estado.personal)) estado.personal = PERSONAL_INICIAL.map(p => ({ ...p }));
   if (!estado.clave) estado.clave = CLAVE_INICIAL;
@@ -1514,32 +1572,65 @@ function turnosDe(sig, fecha) {
 /**
  * Qué pasaría si a esta persona se le diera ese turno ese día.
  *
- * Sin el horario base sólo se ve lo que este sistema tiene asignado, pero eso
- * alcanza para las dos señales que importan: juntar dos turnos el mismo día
- * (C+K son 14 horas corridas) y encadenar tres jornadas dobles seguidas.
+ * Sólo ve lo que este sistema tiene asignado: si le dieron tiempo extra por
+ * fuera, o viene de un turno del rol, eso no aparece. Aun así alcanza para tres
+ * señales, de más a menos grave:
+ *
+ *   1. Ya trae ese mismo turno ese día.
+ *   2. Tres jornadas dobles seguidas — la regla dura de la jefatura.
+ *   3. Tres días seguidos con tiempo extra del tamaño que sea. No está
+ *      prohibido, pero se pasa de noche si nadie lo suma.
  */
 function revisar(sig, fecha, turno) {
   const hoy = new Set(turnosDe(sig, fecha));
-  if (hoy.has(turno)) return { alerta: 'Ya tiene ese turno asignado ese día', grave: true };
+  if (hoy.has(turno))
+    return { alerta: 'Ya tiene ese turno asignado ese día', grave: true, seguidos: 0 };
   hoy.add(turno);
 
-  const esDoble = (f, extra) => {
-    const n = new Set(turnosDe(sig, f));
-    if (extra) n.add(extra);
-    return n.size >= 2;
-  };
+  const conEsto = (f) => f === fecha ? hoy : new Set(turnosDe(sig, f));
+  const avisos = [];
+  let grave = false;
 
-  if (!esDoble(fecha, turno)) return { alerta: null, grave: false };
-
-  let corrida = 1;
-  for (let f = masDias(fecha,-1); esDoble(f); f = masDias(f,-1)) corrida++;
-  for (let f = masDias(fecha, 1); esDoble(f); f = masDias(f, 1)) corrida++;
-
-  if (corrida > MAX_DIAS_SEGUIDOS) {
-    return { alerta: `Serían ${corrida} jornadas dobles seguidas`, grave: true };
+  // --- Jornadas dobles: dos turnos troncales el mismo día ---
+  const esDoble = (f) => conEsto(f).size >= 2;
+  if (esDoble(fecha)) {
+    let corrida = 1;
+    for (let f = masDias(fecha,-1); esDoble(f); f = masDias(f,-1)) corrida++;
+    for (let f = masDias(fecha, 1); esDoble(f); f = masDias(f, 1)) corrida++;
+    if (corrida > MAX_DIAS_SEGUIDOS) {
+      avisos.push(`Serían ${corrida} jornadas dobles seguidas`);
+      grave = true;
+    } else {
+      avisos.push(`Juntaría ${[...hoy].sort().join('+')} el mismo día (jornada doble)`);
+    }
   }
-  const juntos = [...hoy].sort().join('+');
-  return { alerta: `Juntaría ${juntos} el mismo día (jornada doble)`, grave: false };
+
+  // --- Días seguidos con tiempo extra, del tamaño que sea ---
+  const conTx = (f) => conEsto(f).size > 0;
+  let seguidos = 1, ini = fecha, fin = fecha;
+  for (let f = masDias(fecha,-1); conTx(f); f = masDias(f,-1)) { seguidos++; ini = f; }
+  for (let f = masDias(fecha, 1); conTx(f); f = masDias(f, 1)) { seguidos++; fin = f; }
+
+  if (seguidos > MAX_DIAS_SEGUIDOS_TX) {
+    avisos.push(`Serían ${seguidos} días seguidos con TX, del ${Number(ini.slice(8))} `
+              + `al ${Number(fin.slice(8))}`);
+  }
+
+  return { alerta: avisos.join(' · ') || null, grave, seguidos };
+}
+
+//: A quién resaltar en el próximo repintado. Es momentáneo a propósito: llama
+//: la atención al asignar y luego deja de estorbar.
+let destellar = null;
+let relojDestello = null;
+
+function marcarDestello(quien) {
+  destellar = quien;
+  clearTimeout(relojDestello);
+  relojDestello = setTimeout(() => {
+    destellar = null;
+    $$('.dia-asig li.destella').forEach(el => el.classList.remove('destella'));
+  }, 2600);
 }
 
 function pintarSugerencias() {
@@ -1589,8 +1680,22 @@ function pintarSugerencias() {
         });
         if (!chips.length) continue;
 
+        // Los avisos de los turnos que todavía se pueden dar, agrupados por
+        // texto: si el mismo motivo aplica a todos, se dice una vez y sin
+        // apellido; si cambia según el turno, cada uno dice de cuál habla.
+        const pendientes = chips.filter(c => !c.mio && c.alerta);
+        const porTexto = new Map();
+        for (const c of pendientes) {
+          if (!porTexto.has(c.alerta)) porTexto.set(c.alerta, []);
+          porTexto.get(c.alerta).push(c.t);
+        }
+        const alertas = [...porTexto].map(([texto, turnos]) =>
+          turnos.length === pendientes.length ? texto : `${turnos.join(' y ')}: ${texto}`);
+
         gente.push({ sig, nombre: p.n, categoria: p.c, deOtra: p.c !== g,
-                     horas: estado.horas[sig] ?? null, chips,
+                     horas: estado.horas[sig] ?? null, chips, alertas,
+                     grave: pendientes.some(c => c.grave),
+                     seguidos: Math.max(0, ...chips.map(c => c.seguidos || 0)),
                      tiene: chips.some(c => c.mio) });
       }
 
@@ -1647,11 +1752,16 @@ function pintarSugerencias() {
       const primero = b.gente.find(p => p.chips.some(c => !c.mio && !c.lleno && !c.grave));
 
       const filas = b.gente.length ? b.gente.map((p,i) => `
-        <li class="${p.tiene ? 'ya' : ''} ${p === primero ? 'sugerido' : ''}">
+        <li class="${p.tiene ? 'ya' : ''} ${p === primero ? 'sugerido' : ''}
+                   ${p.grave ? 'grave' : p.alertas.length ? 'ojo' : ''}
+                   ${destellar === `${p.sig}|${d.f}` ? 'destella' : ''}">
           <span class="puesto">${p.tiene ? '✓' : i+1}</span>
           <span class="quien">${esc(p.sig)}
             ${p.deOtra ? `<span class="otra-cat">${TITULO[p.categoria]}</span>` : ''}
-            <small>${esc(nombreCorto(p.nombre))}</small></span>
+            ${p.seguidos > MAX_DIAS_SEGUIDOS_TX
+              ? `<span class="seguidos">${p.seguidos} días seguidos</span>` : ''}
+            <small>${esc(nombreCorto(p.nombre))}</small>
+            ${p.alertas.map(a => `<em>${esc(a)}</em>`).join('')}</span>
           <span class="horas ${p.horas === null ? 'falta' : ''}">
             ${p.horas === null ? 'sin horas' : p.horas.toFixed(1)}
             ${p.horas === null ? '' : '<small>trabajadas</small>'}</span>
@@ -1709,11 +1819,17 @@ function pintarSugerencias() {
       (estado.asignados[k] ||= []).push(sig);
       guardar();
       avisar(alerta ? `${sig} asignado. ${alerta}.` : `${sig} asignado el ${dia} en ${t}`,
-             alerta ? 'ojo' : 'ok', alerta ? 6500 : 3500);
+             b.dataset.grave ? 'mal' : alerta ? 'ojo' : 'ok', alerta ? 7000 : 3500);
+      if (alerta) marcarDestello(`${sig}|${f}`);
     }
     pintarSugerencias();
   }));
 
+  const bit = $('#a-bitacora');
+  if (bit && document.activeElement !== bit) {
+    bit.value = estado.bitacora || '';
+    $('#a-bitacora-estado').textContent = '';
+  }
   pintarTablaAsignados();
   pintarMensajesAsignacion();
 }
@@ -1735,8 +1851,10 @@ function filasAsignadas() {
     if (!d) continue;
     for (const sig of lista) {
       const p = persona(sig);
+      const clave = `${f}|${g}|${t}|${sig}`;
       filas.push({ sig, nombre: p ? p.n : sig, categoria: p ? p.c : g,
-                   f, g, t, dia: d.d, dow: d.largo });
+                   f, g, t, dia: d.d, dow: d.largo,
+                   clave, nota: estado.notas[clave] || '' });
     }
   }
   return filas.sort((a,b) => a.sig.localeCompare(b.sig)
@@ -1767,6 +1885,10 @@ function pintarTablaAsignados() {
       <td class="dia"><b>${r.dia}</b> <small>${r.dow.slice(0,3)}</small></td>
       <td><span class="turno-eti t-${r.t}">${r.t}</span></td>
       <td class="cat">${TITULO[r.categoria]}</td>
+      <td class="cel-nota">
+        <button class="nota-btn ${r.nota ? 'tiene' : ''}" data-nota="${esc(r.clave)}"
+                title="${r.nota ? esc(r.nota) : 'Anotar por qué'}">
+          ${r.nota ? esc(r.nota) : '+ nota'}</button></td>
       <td class="acc"><button class="btn mini riesgo" data-quitar-asig="${r.f}|${r.g}|${r.t}|${esc(r.sig)}"
               title="Quitar esta asignación">×</button></td>
     </tr>`;
@@ -1774,28 +1896,77 @@ function pintarTablaAsignados() {
 
   $('#a-tabla').innerHTML = `<div class="marco-tabla"><table class="tabla asignados">
     <thead><tr><th>Siglas</th><th>Nombre</th><th>Día</th><th>Turno</th>
-      <th>Categoría</th><th></th></tr></thead>
+      <th>Categoría</th><th>Nota</th><th></th></tr></thead>
     <tbody>${cuerpo}</tbody></table></div>`;
+
+  $$('[data-nota]').forEach(b => b.addEventListener('click', () => modalNota(b.dataset.nota)));
 
   $$('[data-quitar-asig]').forEach(b => b.addEventListener('click', () => {
     const [f, g, t, sig] = b.dataset.quitarAsig.split('|');
     const k = kAsig(f,g,t);
     estado.asignados[k] = dados(f,g,t).filter(x => x !== sig);
     if (!estado.asignados[k].length) delete estado.asignados[k];
+    delete estado.notas[`${f}|${g}|${t}|${sig}`];
     guardar();
     avisar(`${sig} ya no tiene el ${Number(f.slice(8))} en ${t}. El lugar vuelve a estar libre.`);
     pintarSugerencias();
   }));
 }
 
+/** Por qué se le dio ese lugar a esa persona. */
+function modalNota(clave) {
+  const [f, , t, sig] = clave.split('|');
+  const p = persona(sig);
+  const dia = Number(f.slice(8));
+
+  abrirPanel(`
+    <button class="cerrar" id="no-cerrar" aria-label="Cerrar">×</button>
+    <h3>Nota de la asignación</h3>
+    <p class="sub"><b>${esc(sig)}</b>${p ? ' · ' + esc(nombreCorto(p.n)) : ''}
+      · el <b>${dia}</b> en <b>${esc(t)}</b></p>
+    <p class="nota">Para cuando pregunten por qué. Sale en la tabla y se copia
+      junto con lo demás.</p>
+    <textarea id="no-texto" rows="4"
+      placeholder="Ej. Era el que menos horas llevaba de los que lo pidieron."
+      >${esc(estado.notas[clave] || '')}</textarea>
+    <div class="acciones">
+      ${estado.notas[clave] ? '<button class="btn riesgo" id="no-borrar">Borrar nota</button>' : ''}
+      <button class="btn" id="no-cancelar">Cancelar</button>
+      <button class="btn fuerte" id="no-guardar">Guardar</button>
+    </div>`);
+
+  const cerrar = () => cerrarPanel();
+  $('#no-cerrar').addEventListener('click', cerrar);
+  $('#no-cancelar').addEventListener('click', cerrar);
+
+  const borrar = $('#no-borrar');
+  if (borrar) borrar.addEventListener('click', () => {
+    delete estado.notas[clave];
+    guardar(); cerrar(); pintarTablaAsignados();
+    avisar('Nota borrada');
+  });
+
+  $('#no-guardar').addEventListener('click', () => {
+    const texto = $('#no-texto').value.trim();
+    if (texto) estado.notas[clave] = texto; else delete estado.notas[clave];
+    guardar(); cerrar(); pintarTablaAsignados();
+    avisar(texto ? 'Nota guardada' : 'Nota borrada');
+  });
+
+  setTimeout(() => { const c = $('#no-texto'); c.focus();
+                     c.setSelectionRange(c.value.length, c.value.length); }, 80);
+}
+
 /** Filas separadas por tabuladores: se pegan en Excel una celda por columna. */
 const asignadasComoTSV = () =>
-  ['Siglas\tNombre\tDía\tTurno\tCategoría',
-   ...filasAsignadas().map(r =>
-     [r.sig, r.nombre, r.dia, r.t, TITULO[r.categoria]].join('\t'))].join('\n');
+  ['Siglas\tNombre\tDía\tTurno\tCategoría\tNota',
+   //: Los saltos de línea de una nota romperían el renglón al pegarlo en Excel.
+   ...filasAsignadas().map(r => [r.sig, r.nombre, r.dia, r.t, TITULO[r.categoria],
+     r.nota.replace(/\s+/g, ' ')].join('\t'))].join('\n');
 
 const asignadasComoLista = () =>
-  filasAsignadas().map(r => `${r.sig} · ${r.dia} ${r.t} · ${TITULO[r.categoria]}`).join('\n');
+  filasAsignadas().map(r => `${r.sig} · ${r.dia} ${r.t} · ${TITULO[r.categoria]}`
+    + (r.nota ? ` — ${r.nota.replace(/\s+/g, ' ')}` : '')).join('\n');
 
 function pintarMensajesAsignacion() {
   const fechas = new Set(ventana().map(d => d.f));
@@ -1979,8 +2150,9 @@ function meterRespaldo(crudo) {
     return 'El archivo no trae datos de tiempo extra.';
 
   estado = { cupos:{}, peticiones:{}, horas:{}, asignados:{}, tambien:{},
+             notas:{}, bitacora:'',
              personal:null, clave:CLAVE_INICIAL, ronda:1, ...nuevo };
-  for (const k of ['cupos','peticiones','horas','asignados','tambien'])
+  for (const k of ['cupos','peticiones','horas','asignados','tambien','notas'])
     estado[k] = estado[k] || {};
   if (!Array.isArray(estado.personal)) estado.personal = PERSONAL_INICIAL.map(p => ({ ...p }));
   if (!ESCALONES[estado.ronda]) estado.ronda = 1;
@@ -2205,7 +2377,8 @@ const LIMPIABLE = [
   { clave:'cupos',      etiqueta:'Lugares publicados',    porDefecto:true,
     arrastra:['tambien'] },
   { clave:'peticiones', etiqueta:'Solicitudes capturadas', porDefecto:true  },
-  { clave:'asignados',  etiqueta:'Asignaciones hechas',    porDefecto:true  },
+  { clave:'asignados',  etiqueta:'Asignaciones y sus notas', porDefecto:true,
+    arrastra:['notas'], bitacora:true },
   { clave:'horas',      etiqueta:'Horas capturadas',       porDefecto:true  },
   { clave:'personal',   etiqueta:'Catálogo de personal',   porDefecto:false, cimiento:true },
 ];
@@ -2293,9 +2466,11 @@ function modalLimpiar() {
       if (g === 'personal') PERSONAL.length = 0;
       else {
         estado[g] = {};
-        // Con qué grupos se comparte un lugar no sobrevive al lugar mismo.
-        for (const otro of (LIMPIABLE.find(x => x.clave === g).arrastra || []))
-          estado[otro] = {};
+        // Lo que cuelga de un dato no sobrevive al dato: con qué grupos se
+        // comparte un lugar, y por qué se asignó lo que se asignó.
+        const def = LIMPIABLE.find(x => x.clave === g);
+        for (const otro of (def.arrastra || [])) estado[otro] = {};
+        if (def.bitacora) estado.bitacora = '';
       }
     }
     if ($('#lim-ronda').checked) estado.ronda = 1;
@@ -2469,6 +2644,18 @@ function iniciar() {
   $('#sobras-seguir').addEventListener('click', () => {
     sobrasVistas = true;
     $('#sobras').hidden = true;
+  });
+
+  const bit = $('#a-bitacora');
+  let relojBitacora = null;
+  bit.addEventListener('input', () => {
+    $('#a-bitacora-estado').textContent = 'Escribiendo…';
+    clearTimeout(relojBitacora);
+    relojBitacora = setTimeout(() => {
+      estado.bitacora = bit.value;
+      guardar();
+      $('#a-bitacora-estado').textContent = 'Guardado';
+    }, 500);
   });
 
   $('#a-copiar-excel').addEventListener('click', () => copiar(asignadasComoTSV(),
