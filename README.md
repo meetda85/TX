@@ -138,7 +138,18 @@ Si hay horario cargado, se avisa de los choques (que ya trae ese turno, que
 juntaría dos turnos el mismo día, que serían tres jornadas dobles seguidas).
 El aviso no bloquea: la decisión es del supervisor.
 
-Al final, el mensaje de asignación listo para copiar con su `Pls ack`.
+Abajo, antes del mensaje, **«Lo que quedó asignado»**: un renglón por
+asignación —siglas, nombre, día, turno, categoría— ordenado por siglas, que es
+como está armado el rol. Sirve para dos cosas que el mensaje de WhatsApp no
+hace bien:
+
+- **Pasarlo al Excel.** El mensaje está escrito para leerse en el grupo
+  (`CT y ZL 17C`) y hay que ir desarmándolo. El botón **Copiar para Excel**
+  copia la tabla con tabuladores: al pegarla cae una celda por columna.
+- **Corregir.** Cada renglón trae su **×** para deshacer esa asignación sin
+  tener que ir a buscarla entre las tarjetas de arriba.
+
+Y al final sí, el mensaje de asignación listo para copiar con su `Pls ack`.
 
 ### 5 · Resumen
 
@@ -160,6 +171,11 @@ De ahí se salta directo a publicar la siguiente ronda.
 
 El botón **⟳ Nueva asignación** de la barra superior vacía lo del ciclo
 anterior. Es lo primero que se hace cada semana.
+
+Como ahí arriba es fácil no verlo —y capturar la semana nueva encima de la
+anterior—, **al abrir el paso 1 sale un aviso** cuando quedaron datos del ciclo
+pasado, con la cuenta de lo que hay y los dos caminos: limpiar, o seguir con
+ésos. El aviso se calla el resto de la sesión en cuanto eliges seguir.
 
 Lo que se borra por omisión:
 

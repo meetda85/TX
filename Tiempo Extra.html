@@ -270,6 +270,40 @@ table.matriz td.compartida { box-shadow:inset 0 0 0 1.5px
 .check.grande small { display:block; font-size:11px; color:var(--ink-soft);
   font-weight:400; }
 
+/* Aviso de datos viejos, al abrir. Fuerte a propósito: pasarlo por alto es
+   justo lo que hace que la semana nueva se capture encima de la anterior. */
+.aviso-sobras { display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  background:var(--warn-bg); border:1px solid var(--warn);
+  border-left:5px solid var(--warn); border-radius:12px;
+  padding:14px 16px; margin-bottom:14px; box-shadow:var(--shadow); }
+.aviso-sobras .texto { flex:1; min-width:240px; }
+.aviso-sobras b { display:block; font-size:14px; color:var(--warn); margin-bottom:2px; }
+.aviso-sobras span { font-size:12.5px; color:var(--ink-soft); }
+
+/* Lo asignado, en renglones, para transcribirlo al rol. */
+table.tabla.asignados td.cel-sig { width:64px; }
+/* El turno con su color, igual que en el resto del programa: se localiza de
+   un vistazo al ir bajando la lista para transcribirla. */
+table.tabla.asignados .turno-eti { display:inline-grid; place-items:center;
+  width:32px; height:26px; border-radius:7px; font:800 13px var(--mono);
+  border:1px solid; }
+table.tabla.asignados .turno-eti.t-C { background:var(--c-bg); color:var(--c-ink);
+  border-color:var(--c-line); }
+table.tabla.asignados .turno-eti.t-K { background:var(--k-bg); color:var(--k-ink);
+  border-color:var(--k-line); }
+table.tabla.asignados .turno-eti.t-O { background:var(--o-bg); color:var(--o-ink);
+  border-color:var(--o-line); }
+table.tabla.asignados td.nom { font-size:12.5px; color:var(--ink-soft); }
+table.tabla.asignados td.dia { font:650 14px var(--mono); width:74px;
+  font-variant-numeric:tabular-nums; }
+table.tabla.asignados td.dia small { font:400 11px var(--ui); color:var(--ink-soft);
+  margin-left:3px; text-transform:capitalize; }
+table.tabla.asignados td.cat { font-size:12px; color:var(--ink-soft); }
+table.tabla.asignados td.acc { width:44px; text-align:right; }
+/* Una línea marca dónde empieza cada persona, sin repetir su nombre. */
+table.tabla.asignados tr.abre td { border-top:1px solid var(--line-firm); }
+table.tabla.asignados tr:first-child td { border-top:0; }
+
 /* ---------- Paso 4: un día por tarjeta, adentro las categorías ---------- */
 .dia-asig { border:1px solid var(--line); border-radius:12px; margin-bottom:14px;
   overflow:hidden; background:var(--surface); box-shadow:var(--shadow); }
@@ -526,6 +560,19 @@ table.matriz td.compartida { box-shadow:inset 0 0 0 1.5px
 
 <!-- ============ 1 · PUBLICAR ============ -->
 <section class="vista" id="v-publicar" role="tabpanel">
+
+  <!-- Lo primero que se ve al abrir, si quedaron datos de la semana pasada.
+       Antes esto sólo estaba en un botón de la barra: si no te fijabas,
+       arrancabas la asignación nueva encima de la anterior. -->
+  <div class="aviso-sobras" id="sobras" hidden>
+    <div class="texto">
+      <b>Quedaron datos de la asignación anterior</b>
+      <span id="sobras-detalle"></span>
+    </div>
+    <button class="btn fuerte" id="sobras-limpiar">⟳ Empezar una asignación nueva</button>
+    <button class="btn plano" id="sobras-seguir">Seguir con éstos</button>
+  </div>
+
   <div class="tarjeta">
     <h2>1 · Cuántos lugares hay</h2>
     <p class="nota">
@@ -648,6 +695,20 @@ table.matriz td.compartida { box-shadow:inset 0 0 0 1.5px
       <span class="nota" id="a-conteo" style="margin:0 0 8px auto"></span>
     </div>
     <div id="a-lista"></div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Lo que quedó asignado</h2>
+    <p class="nota">
+      Renglón por renglón, ordenado por siglas, tal como lo vas a anotar en el
+      rol. La <b>×</b> de la derecha lo deshace sin tener que buscarlo arriba.
+    </p>
+    <div class="linea">
+      <button class="btn fuerte" id="a-copiar-excel">Copiar para Excel</button>
+      <button class="btn" id="a-copiar-texto">Copiar como lista</button>
+      <span class="nota" id="a-cuantas" style="margin:0 0 8px auto"></span>
+    </div>
+    <div id="a-tabla"></div>
   </div>
 
   <div class="tarjeta">
@@ -904,6 +965,27 @@ function abrirPanel(html) {
 function cerrarPanel() {
   $('#panel').hidden = true;
   $('#velo').hidden = true;
+}
+
+/**
+ * Copia al portapapeles. Si el navegador lo bloquea —pasa al abrir el archivo
+ * desde el disco en algunos equipos— deja el texto seleccionado para Ctrl+C.
+ */
+async function copiar(texto, aviso, nodo) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    avisar(aviso);
+  } catch {
+    if (nodo) {
+      const r = document.createRange();
+      r.selectNodeContents(nodo);
+      getSelection().removeAllRanges();
+      getSelection().addRange(r);
+      avisar('Selecciónalo y cópialo con Ctrl+C', 'ojo', 6000);
+    } else {
+      avisar('El navegador no dejó copiar. Selecciona la tabla y usa Ctrl+C', 'ojo', 6000);
+    }
+  }
 }
 
 /** Vuelve a armar la lista que sugiere siglas al capturar solicitudes. */
@@ -1250,15 +1332,9 @@ function pintarCajas(destino, cajas, vacio) {
       <pre id="${destino.slice(1)}-${i}">${esc(c.mensaje)}</pre>
       <footer><button class="btn mini" data-copiar="${destino.slice(1)}-${i}">Copiar mensaje</button></footer>
     </div>`).join('');
-  $$('[data-copiar]', cont).forEach(b => b.addEventListener('click', async () => {
-    const nodo = document.getElementById(b.dataset.copiar);
-    try { await navigator.clipboard.writeText(nodo.textContent); avisar('Mensaje copiado'); }
-    catch {
-      const r = document.createRange(); r.selectNodeContents(nodo);
-      getSelection().removeAllRanges(); getSelection().addRange(r);
-      avisar('Selecciónalo y copia con Ctrl+C', 'ojo');
-    }
-  }));
+  $$('[data-copiar]', cont).forEach(b => b.addEventListener('click', () =>
+    copiar(document.getElementById(b.dataset.copiar).textContent, 'Mensaje copiado',
+           document.getElementById(b.dataset.copiar))));
 }
 
 /* ==========================================================================
@@ -1638,8 +1714,88 @@ function pintarSugerencias() {
     pintarSugerencias();
   }));
 
+  pintarTablaAsignados();
   pintarMensajesAsignacion();
 }
+
+/**
+ * Lo asignado, en renglones, para pasarlo al rol de Excel.
+ *
+ * Del mensaje de WhatsApp se puede copiar, pero está escrito para leerse en el
+ * grupo («CT y ZL 17C»), no para transcribirse: hay que ir desarmando quién con
+ * quién. Esto va al revés: un renglón por asignación, ordenado por siglas, que
+ * es como está armado el rol.
+ */
+function filasAsignadas() {
+  const fechas = new Map(ventana().map(d => [d.f, d]));
+  const filas = [];
+  for (const [k, lista] of Object.entries(estado.asignados)) {
+    const [f, g, t] = k.split('|');
+    const d = fechas.get(f);
+    if (!d) continue;
+    for (const sig of lista) {
+      const p = persona(sig);
+      filas.push({ sig, nombre: p ? p.n : sig, categoria: p ? p.c : g,
+                   f, g, t, dia: d.d, dow: d.largo });
+    }
+  }
+  return filas.sort((a,b) => a.sig.localeCompare(b.sig)
+                          || a.f.localeCompare(b.f)
+                          || TRONCALES.indexOf(a.t) - TRONCALES.indexOf(b.t));
+}
+
+function pintarTablaAsignados() {
+  const filas = filasAsignadas();
+  $('#a-cuantas').textContent = filas.length
+    ? `${filas.length} asignación(es)` : '';
+  $('#a-copiar-excel').disabled = !filas.length;
+  $('#a-copiar-texto').disabled = !filas.length;
+
+  if (!filas.length) {
+    $('#a-tabla').innerHTML =
+      '<p class="hueco">Todavía no has asignado nada. Sube y pulsa un turno.</p>';
+    return;
+  }
+
+  let previa = null;
+  const cuerpo = filas.map(r => {
+    const nuevo = r.sig !== previa;
+    previa = r.sig;
+    return `<tr class="${nuevo ? 'abre' : ''}">
+      <td class="cel-sig">${nuevo ? `<span class="chip">${esc(r.sig)}</span>` : ''}</td>
+      <td class="nom">${nuevo ? esc(r.nombre) : ''}</td>
+      <td class="dia"><b>${r.dia}</b> <small>${r.dow.slice(0,3)}</small></td>
+      <td><span class="turno-eti t-${r.t}">${r.t}</span></td>
+      <td class="cat">${TITULO[r.categoria]}</td>
+      <td class="acc"><button class="btn mini riesgo" data-quitar-asig="${r.f}|${r.g}|${r.t}|${esc(r.sig)}"
+              title="Quitar esta asignación">×</button></td>
+    </tr>`;
+  }).join('');
+
+  $('#a-tabla').innerHTML = `<div class="marco-tabla"><table class="tabla asignados">
+    <thead><tr><th>Siglas</th><th>Nombre</th><th>Día</th><th>Turno</th>
+      <th>Categoría</th><th></th></tr></thead>
+    <tbody>${cuerpo}</tbody></table></div>`;
+
+  $$('[data-quitar-asig]').forEach(b => b.addEventListener('click', () => {
+    const [f, g, t, sig] = b.dataset.quitarAsig.split('|');
+    const k = kAsig(f,g,t);
+    estado.asignados[k] = dados(f,g,t).filter(x => x !== sig);
+    if (!estado.asignados[k].length) delete estado.asignados[k];
+    guardar();
+    avisar(`${sig} ya no tiene el ${Number(f.slice(8))} en ${t}. El lugar vuelve a estar libre.`);
+    pintarSugerencias();
+  }));
+}
+
+/** Filas separadas por tabuladores: se pegan en Excel una celda por columna. */
+const asignadasComoTSV = () =>
+  ['Siglas\tNombre\tDía\tTurno\tCategoría',
+   ...filasAsignadas().map(r =>
+     [r.sig, r.nombre, r.dia, r.t, TITULO[r.categoria]].join('\t'))].join('\n');
+
+const asignadasComoLista = () =>
+  filasAsignadas().map(r => `${r.sig} · ${r.dia} ${r.t} · ${TITULO[r.categoria]}`).join('\n');
 
 function pintarMensajesAsignacion() {
   const fechas = new Set(ventana().map(d => d.f));
@@ -2143,6 +2299,7 @@ function modalLimpiar() {
       }
     }
     if ($('#lim-ronda').checked) estado.ronda = 1;
+    sobrasVistas = false;
     guardar();
 
     cerrar();
@@ -2161,7 +2318,7 @@ function modalLimpiar() {
 function irA(vista) {
   $$('.paso-tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.vista === vista)));
   $$('.vista').forEach(v => { v.hidden = v.id !== `v-${vista}`; });
-  if (vista === 'publicar')    { pintarMatriz(); pintarMensajesPublicacion(); }
+  if (vista === 'publicar')    { pintarSobras(); pintarMatriz(); pintarMensajesPublicacion(); }
   if (vista === 'solicitudes') { pintarSolicitudes(); $('#s-siglas').focus(); }
   if (vista === 'horas')       pintarHoras();
   if (vista === 'asignar')     pintarSugerencias();
@@ -2205,6 +2362,32 @@ function ejemplo() {
   avisar('Cargué un ejemplo completo. Recorre los cuatro pasos con los botones «Siguiente».', 'ok', 8000);
 }
 
+/**
+ * Avisa arriba del paso 1 cuando quedaron datos del ciclo anterior.
+ *
+ * El botón de limpiar vive en la barra, y ahí es fácil no verlo: se empezaba la
+ * semana nueva encima de la anterior sin notarlo hasta muy adentro.
+ */
+function pintarSobras() {
+  const cuenta = {
+    'lugar(es) publicado(s)': Object.keys(estado.cupos).length,
+    'solicitud(es)': Object.keys(estado.peticiones).length,
+    'asignación(es)': Object.values(estado.asignados).reduce((s,x) => s + x.length, 0),
+    'hora(s) capturada(s)': Object.keys(estado.horas).length,
+  };
+  const partes = Object.entries(cuenta).filter(([,n]) => n).map(([q,n]) => `${n} ${q}`);
+  const caja = $('#sobras');
+
+  if (!partes.length || sobrasVistas) { caja.hidden = true; return; }
+  $('#sobras-detalle').textContent = partes.join(' · ')
+    + '. Si vas a empezar la asignación de esta semana, límpialos primero.';
+  caja.hidden = false;
+}
+
+//: Se apaga en cuanto dices que sigues con esos datos, para no estorbar el resto
+//: de la sesión. Al volver a abrir el programa vuelve a preguntar.
+let sobrasVistas = false;
+
 function pintarVentana() {
   $('#p-desde').value = estado.desde || hoyLocal();
   if ([...$('#p-dias').options].some(o => o.value === String(estado.dias)))
@@ -2220,6 +2403,7 @@ function iniciar() {
 
   refrescarSiglas();
 
+  pintarSobras();
   pintarMatriz();
   pintarMensajesPublicacion();
 
@@ -2280,6 +2464,17 @@ function iniciar() {
 
   $('#pe-cambiar').addEventListener('click', modalCambiarClave);
   $('#respaldo').addEventListener('click', modalRespaldo);
+
+  $('#sobras-limpiar').addEventListener('click', modalLimpiar);
+  $('#sobras-seguir').addEventListener('click', () => {
+    sobrasVistas = true;
+    $('#sobras').hidden = true;
+  });
+
+  $('#a-copiar-excel').addEventListener('click', () => copiar(asignadasComoTSV(),
+    'Copiado. Pégalo en Excel y cae una celda por columna.'));
+  $('#a-copiar-texto').addEventListener('click', () => copiar(asignadasComoLista(),
+    'Lista copiada'));
 
   $('#tema').addEventListener('click', () =>
     tema(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
