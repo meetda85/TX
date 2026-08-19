@@ -116,9 +116,10 @@ entendió al revés.
 > (`COK`) o en una lista (`C, O y K`). El interruptor está justamente para
 > cuando falle.
 
-Pegar el mensaje del grupo completo también funciona, pero está en *Más…*: no
-se puede depender de que el mensaje llegue en un formato concreto cuando varias
-personas usan el sistema.
+En la versión de Python se puede además pegar el mensaje del grupo completo,
+desde *Más…*. En la de un solo archivo no: la captura es a mano, a propósito,
+porque no se puede depender de que el mensaje llegue en un formato concreto
+cuando varias personas usan el sistema.
 
 ### 3 · Horas
 
