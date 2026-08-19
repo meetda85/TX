@@ -100,9 +100,21 @@ Siglas:  CE
 Pidió:   12 en C, 14 en C, 15 C y K
 ```
 
-Se entiende igual `12c 14c 15 c y k`, y una lista de días con un turno al final
-(`11, 12 y 15 en K`). Al agregar, el cursor vuelve a las siglas para seguir con
-el siguiente. Cada solicitud queda como una ficha que se puede quitar.
+Se entiende igual `12c 14c 15 c y k`, `15COK` pegado, y una lista de días con un
+turno al final (`11, 12 y 15 en K`). Al agregar, el cursor vuelve a las siglas
+para seguir con el siguiente. Cada solicitud queda como una ficha que se puede
+quitar.
+
+**«Uno u otro».** Hay quien pide `25 en C o K` queriendo decir *uno de los dos*,
+no los dos. Escrito con **o** queda marcado como alternativa: en cuanto se le da
+uno, el otro deja de ofrecerse. Los dos turnos aparecen juntos en una ficha con
+un interruptor **y** / **o** en medio, que lo cambia de un clic por si se
+entendió al revés.
+
+> La `o` choca con el turno `O`. Se resuelve por la forma: una `o` suelta entre
+> dos letras (`C o K`) es conjunción, mientras que el turno `O` va pegado
+> (`COK`) o en una lista (`C, O y K`). El interruptor está justamente para
+> cuando falle.
 
 Pegar el mensaje del grupo completo también funciona, pero está en *Más…*: no
 se puede depender de que el mensaje llegue en un formato concreto cuando varias
@@ -183,7 +195,16 @@ quién le asigno»:
   ofreciendo.
 - **Ya cubierto**, con los nombres de quienes quedaron.
 
-De ahí se salta directo a publicar la siguiente ronda.
+**El cierre de la ronda vive aquí.** Si no quedó nada libre, se ofrece cerrar la
+asignación y ahí se acaba. Si quedaron lugares, se ofrece **pasar a la ronda
+siguiente**: lo ya asignado se queda como está, la ronda que termina se pliega
+en **Rondas anteriores**, y **los mensajes para volver a publicar salen en esa
+misma pantalla** — no hay que regresar al paso 1. De ahí se sigue al paso 2 a
+anotar quién contestó.
+
+Es un camino de ida: cada ronda deja su renglón en el historial —cuántos se
+asignaron, cuántos quedaron, con qué siglas— para saber después en cuál se
+cubrió cada cosa. Si se pasó de ronda sin querer, **Reabrir** lo deshace.
 
 ---
 

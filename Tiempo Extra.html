@@ -315,6 +315,47 @@ table.tabla.asignados td.cel-nota { max-width:300px; }
 table.tabla.asignados tr.abre td { border-top:1px solid var(--line-firm); }
 table.tabla.asignados tr:first-child td { border-top:0; }
 
+/* Un día con varios turnos pedidos: el interruptor de en medio dice si los
+   quiere todos («y») o sólo uno («o»). */
+.dia-sol { display:inline-flex; align-items:center; gap:3px; padding:2px;
+  border-radius:9px; border:1px dashed var(--line-firm); }
+.dia-sol.alterna { border-style:solid; border-color:var(--accent);
+  background:color-mix(in srgb, var(--accent) 7%, transparent); }
+.dia-sol .junta { min-width:20px; height:20px; padding:0 5px; border-radius:5px;
+  border:1px solid var(--line-firm); background:var(--surface); cursor:pointer;
+  font:800 11px var(--mono); color:var(--ink-soft); }
+.dia-sol.alterna .junta { border-color:var(--accent); background:var(--accent);
+  color:var(--accent-ink); }
+.dia-sol .junta:hover { border-color:var(--accent); color:var(--accent); }
+.dia-sol.alterna .junta:hover { background:var(--surface); }
+
+.uno-u-otro { display:inline-block; margin-left:7px; padding:1px 7px;
+  border-radius:20px; font:700 10px var(--ui); vertical-align:1px;
+  letter-spacing:.02em; text-transform:uppercase;
+  background:color-mix(in srgb, var(--accent) 12%, transparent);
+  color:var(--accent); border:1px solid var(--accent); }
+
+/* Un turno que ya no aplica porque pidió uno u otro y ya tiene el otro. */
+.chip-turno.descartado { border-style:dotted; opacity:.45;
+  text-decoration:line-through; }
+
+/* Rondas cerradas, plegadas. */
+.ronda-vieja { border:1px solid var(--line); border-radius:10px;
+  margin-bottom:8px; background:var(--surface-2); }
+.ronda-vieja summary { display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  padding:11px 14px; cursor:pointer; font-size:13.5px; }
+.ronda-vieja summary::-webkit-details-marker { display:none; }
+.ronda-vieja summary::before { content:'▸'; color:var(--ink-soft); font-size:12px; }
+.ronda-vieja[open] summary::before { content:'▾'; }
+.ronda-vieja summary .cifras { color:var(--ink-soft); font-size:12.5px; }
+.ronda-vieja summary .cuando { margin-left:auto; color:var(--ink-soft);
+  font:400 11.5px var(--mono); }
+.detalle-ronda { padding:0 14px 12px; border-top:1px solid var(--line); }
+.detalle-ronda .nota { margin-top:10px; }
+.detalle-ronda .fichas { display:flex; flex-wrap:wrap; gap:5px; }
+.detalle-ronda .ficha { font:650 12px var(--mono); padding:3px 8px; border-radius:6px;
+  background:var(--surface); border:1px solid var(--line); }
+
 /* ---------- Paso 4: un día por tarjeta, adentro las categorías ---------- */
 .dia-asig { border:1px solid var(--line); border-radius:12px; margin-bottom:14px;
   overflow:hidden; background:var(--surface); box-shadow:var(--shadow); }
@@ -793,9 +834,31 @@ table.tabla.asignados tr:first-child td { border-top:0; }
   <div class="tarjeta">
     <h2>Ya cubierto</h2>
     <div id="c-cubiertos"></div>
+  </div>
+
+  <!-- El cierre de la ronda: o se acaba aquí, o se pasa a la siguiente sin
+       volver al paso 1. Los mensajes de la ronda nueva salen aquí mismo. -->
+  <div class="tarjeta" id="c-cierre-ronda"></div>
+
+  <div class="tarjeta" id="c-republicar" hidden>
+    <h2 id="c-republicar-titulo"></h2>
+    <p class="nota" id="c-republicar-nota"></p>
+    <div id="c-republicar-cajas" class="cajas"></div>
+    <div class="pie-paso">
+      <button class="btn fuerte grande" data-ir="solicitudes">
+        Siguiente · anotar quién pidió →</button>
+    </div>
+  </div>
+
+  <div class="tarjeta" id="c-historial" hidden>
+    <h2>Rondas anteriores</h2>
+    <p class="nota">Cómo fue quedando esta asignación, ronda por ronda.</p>
+    <div id="c-historial-lista"></div>
+  </div>
+
+  <div class="tarjeta">
     <div class="pie-paso">
       <button class="btn" data-ir="asignar">← Volver a asignar</button>
-      <button class="btn" data-ir="publicar">Publicar la siguiente ronda</button>
     </div>
   </div>
 </section>
@@ -935,7 +998,7 @@ const CLAVE_INICIAL = '0348';
 //: Todo lo capturado vive aquí y se escribe completo en cada cambio. Es poca
 //: cosa —unos cuantos kilobytes— así que no vale la pena guardar por partes.
 let estado = { cupos:{}, peticiones:{}, horas:{}, asignados:{}, tambien:{},
-               notas:{}, bitacora:'',
+               notas:{}, bitacora:'', alternativas:{}, historial:[], cerrada:false,
                personal:null, clave:CLAVE_INICIAL, ronda:1,
                desde:null, dias:7 };
 
@@ -951,11 +1014,12 @@ function cargar() {
     const crudo = localStorage.getItem(CLAVE);
     if (crudo) estado = { ...estado, ...JSON.parse(crudo) };
   } catch { /* si el navegador lo bloquea, se trabaja en memoria */ }
-  for (const k of ['cupos','peticiones','horas','asignados','tambien','notas'])
+  for (const k of ['cupos','peticiones','horas','asignados','tambien','notas','alternativas'])
     estado[k] = estado[k] || {};
   if (!Array.isArray(estado.personal)) estado.personal = PERSONAL_INICIAL.map(p => ({ ...p }));
   if (!estado.clave) estado.clave = CLAVE_INICIAL;
   if (!ESCALONES[estado.ronda]) estado.ronda = 1;
+  if (!Array.isArray(estado.historial)) estado.historial = [];
   PERSONAL = estado.personal;
   migrarAsignados();
 }
@@ -1083,10 +1147,38 @@ function ventana() {
    ========================================================================== */
 
 const _DIAS_SEM = /\b(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b/gi;
+//: Los separadores entre turnos. La «o» va aparte porque no sólo separa:
+//: «25 en C o K» quiere decir uno de los dos, no los dos.
+//:
+//: Hay un choque con el turno O. Se resuelve por la forma: una «o» suelta
+//: entre dos letras («C o K») se lee como conjunción, mientras que el turno O
+//: aparece pegado («COK») o en una lista con coma o «y» («C, O y K»). Y por si
+//: se equivoca, la ficha de la solicitud trae el interruptor y/o para
+//: corregirlo con un clic.
+//: El orden importa: se prueba coma/«y» primero, luego la «o» suelta, y al
+//: final el pegado sin separador («15COK»). Así «C, O y K» son tres turnos y
+//: «C o K» son dos alternativas, aunque las dos traigan una o.
+const _SEPARA = String.raw`(?:\s*[,y+]\s*|\s+[oó]\s+|\s*)`;
+const _CORRIDA = `[CKOcko](?:${_SEPARA}[CKOcko])*`;
 // Varios días y un turno al final: «11, 12 y 15 en K»
-const _VARIOS = /(\d{1,2}(?:\s*(?:,|y)\s*\d{1,2})+)\s*(?:en\s+)?([CKOcko](?:\s*[,y+]\s*[CKOcko])*)/g;
-// Un día con sus turnos: «12 en C y K», «15c», «4 c+k»
-const _UNO = /\b(\d{1,2})\s*(?:en\s+)?([CKOcko](?:\s*[,y+]\s*[CKOcko])*)/g;
+const _VARIOS = new RegExp(String.raw`(\d{1,2}(?:\s*(?:,|y)\s*\d{1,2})+)\s*(?:en\s+)?(${_CORRIDA})`, 'g');
+// Un día con sus turnos: «12 en C y K», «15c», «4 c+k», «25 en C o K»
+const _UNO = new RegExp(String.raw`\b(\d{1,2})\s*(?:en\s+)?(${_CORRIDA})`, 'g');
+//: La «o» es conjunción sólo cuando va suelta entre dos letras de turno. En
+//: «C, O y K» la O viene detrás de una coma, así que es el turno, no un «o».
+const _CONJUNCION = /([CKOcko])(\s+[oó]\s+)(?=[CKOcko])/g;
+const _ES_ALTERNATIVA = (corrida) => { _CONJUNCION.lastIndex = 0;
+                                       return _CONJUNCION.test(corrida); };
+
+/**
+ * Las letras de turno de una corrida, ya sin la «o» de conjunción.
+ *
+ * Se sacan una por una en vez de partir por separadores: así «15COK», sin nada
+ * en medio, también se lee como los tres turnos.
+ */
+const _TURNOS_DE = (corrida) => corrida
+  .replace(_CONJUNCION, '$1,')
+  .toUpperCase().match(/[CKO]/g) || [];
 
 /** Convierte un número de día en fecha, dentro de la ventana publicada. */
 function resolverDia(n, dias) {
@@ -1097,27 +1189,31 @@ function resolverDia(n, dias) {
 function leerPeticion(texto, dias) {
   const limpio = texto.replace(_DIAS_SEM, ' ');
   const salida = new Set();
+  const alternativas = new Set();
   const tomados = [];
+
+  const guardar_ = (f, turnos, alterna) => {
+    for (const t of turnos) salida.add(`${f}|${t}`);
+    if (alterna && turnos.length > 1) alternativas.add(f);
+  };
 
   for (const m of limpio.matchAll(_VARIOS)) {
     const numeros = m[1].match(/\d{1,2}/g).map(Number);
-    const turnos = m[2].toUpperCase().split(/[^CKO]+/).filter(Boolean);
-    for (const n of numeros) for (const t of turnos) {
+    const turnos = _TURNOS_DE(m[2]);
+    for (const n of numeros) {
       const f = resolverDia(n, dias);
-      if (f) salida.add(`${f}|${t}`);
+      if (f) guardar_(f, turnos, _ES_ALTERNATIVA(m[2]));
     }
     tomados.push([m.index, m.index + m[0].length]);
   }
 
   for (const m of limpio.matchAll(_UNO)) {
     if (tomados.some(([a,b]) => m.index >= a && m.index < b)) continue;
-    const turnos = m[2].toUpperCase().split(/[^CKO]+/).filter(Boolean);
-    for (const t of turnos) {
-      const f = resolverDia(Number(m[1]), dias);
-      if (f) salida.add(`${f}|${t}`);
-    }
+    const turnos = _TURNOS_DE(m[2]);
+    const f = resolverDia(Number(m[1]), dias);
+    if (f) guardar_(f, turnos, _ES_ALTERNATIVA(m[2]));
   }
-  return [...salida].sort();
+  return { turnos: [...salida].sort(), alternativas: [...alternativas] };
 }
 
 /* ==========================================================================
@@ -1341,12 +1437,8 @@ function faltantes() {
   return salida;
 }
 
-function pintarMensajesPublicacion() {
-  const conDow = $('#p-dow').checked;
+function armarPublicaciones(conDow) {
   const ronda = estado.ronda;
-  $('#p-explica').textContent = EXPLICA_RONDA[ronda];
-  $$('.ronda-btn').forEach(b => b.classList.toggle('activa', Number(b.dataset.ronda) === ronda));
-
   const propias = {}, otras = {};
   for (const v of faltantes()) {
     for (const grupo of alcanceDe(v.f, v.g, v.t, ronda)) {
@@ -1373,8 +1465,15 @@ function pintarMensajesPublicacion() {
     const mensaje = partes.filter(Boolean).join('\n\n');
     if (mensaje) cajas.push({ g, mensaje, lugares: propios + deOtra, deOtra });
   }
+  return cajas;
+}
 
-  pintarCajas('#p-mensajes', cajas,
+function pintarMensajesPublicacion() {
+  const ronda = estado.ronda;
+  $('#p-explica').textContent = EXPLICA_RONDA[ronda];
+  $$('.ronda-btn').forEach(b => b.classList.toggle('activa', Number(b.dataset.ronda) === ronda));
+
+  pintarCajas('#p-mensajes', armarPublicaciones($('#p-dow').checked),
     faltantes().length ? 'Nada que ofrecer a estos grupos en esta ronda.'
                        : 'Captura lugares arriba y aquí aparecen los mensajes.');
 }
@@ -1421,17 +1520,23 @@ function agregarSolicitud() {
   if (!texto) { avisar('Escribe qué días pidió', 'ojo'); $('#s-texto').focus(); return; }
 
   const dias = ventana();
-  const halladas = leerPeticion(texto, dias);
+  const { turnos: halladas, alternativas } = leerPeticion(texto, dias);
   if (!halladas.length) {
     avisar(`No entendí «${texto}». Escríbelo como «12 en C, 14 en C, 15 C y K».`, 'mal', 7000);
     return;
   }
 
   for (const clave of halladas) estado.peticiones[`${sig}|${clave}`] = true;
+  for (const f of alternativas) estado.alternativas[`${sig}|${f}`] = true;
   guardar();
-  avisar(`${sig}: ${halladas.map(k => {
-    const [f,t] = k.split('|'); return `${Number(f.slice(8))}${t}`;
-  }).join(', ')}`);
+
+  const resumen = halladas.map(k => {
+    const [f,t] = k.split('|');
+    return `${Number(f.slice(8))}${t}`;
+  }).join(', ');
+  avisar(alternativas.length
+    ? `${sig}: ${resumen}. Los días con «o» quedaron como uno u otro.`
+    : `${sig}: ${resumen}`, 'ok', alternativas.length ? 6000 : 3500);
 
   $('#s-siglas').value = '';
   $('#s-texto').value = '';
@@ -1471,18 +1576,49 @@ function pintarSolicitudes() {
   cont.innerHTML = ORDEN.filter(g => porCat[g]).map(g => `
     <div class="grupo-sol">
       <h3>${TITULO[g]} · ${porCat[g].length}</h3>
-      ${porCat[g].sort().map(sig => `
+      ${porCat[g].sort().map(sig => {
+        // Las peticiones del mismo día van juntas, para poder decir de un clic
+        // si las quiere todas o sólo una.
+        const porDia = {};
+        for (const q of porPersona[sig]) (porDia[q.f] ||= []).push(q);
+        return `
         <div class="reng-sol">
           <span class="sig">${esc(sig)}</span>
-          <div class="fichas">${porPersona[sig].map(q => `
-            <span class="ficha t-${q.t}">${Number(q.f.slice(8))} ${q.t}
-              <button data-quitar="${esc(q.clave)}" title="Quitar" aria-label="Quitar">×</button>
-            </span>`).join('')}</div>
-        </div>`).join('')}
+          <div class="fichas">${Object.keys(porDia).sort().map(f => {
+            const grupo = porDia[f];
+            const alterna = !!estado.alternativas[`${sig}|${f}`];
+            const fichas = grupo.map(q => `
+              <span class="ficha t-${q.t}">${Number(q.f.slice(8))} ${q.t}
+                <button data-quitar="${esc(q.clave)}" title="Quitar" aria-label="Quitar">×</button>
+              </span>`);
+            if (grupo.length < 2) return fichas.join('');
+            // Con dos o más turnos el mismo día hay que saber si son
+            // acumulables o alternativas: el interruptor lo dice y lo cambia.
+            return `<span class="dia-sol ${alterna ? 'alterna' : ''}">
+              ${fichas.join(`<button class="junta" data-alterna="${esc(sig)}|${f}"
+                    title="${alterna ? 'Pidió uno u otro. Pulsa para que sean los dos.'
+                                     : 'Pidió los dos. Pulsa para que sea uno u otro.'}"
+                  >${alterna ? 'o' : 'y'}</button>`)}
+            </span>`;
+          }).join('')}</div>
+        </div>`;
+      }).join('')}
     </div>`).join('');
 
   $$('[data-quitar]', cont).forEach(b => b.addEventListener('click', () => {
+    const [sig, f] = b.dataset.quitar.split('|');
     delete estado.peticiones[b.dataset.quitar];
+    // Si ya sólo le queda un turno ese día, lo de «uno u otro» sobra.
+    const quedan = Object.keys(estado.peticiones).filter(k => k.startsWith(`${sig}|${f}|`));
+    if (quedan.length < 2) delete estado.alternativas[`${sig}|${f}`];
+    guardar();
+    pintarSolicitudes();
+  }));
+
+  $$('[data-alterna]', cont).forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.alterna;
+    if (estado.alternativas[k]) delete estado.alternativas[k];
+    else estado.alternativas[k] = true;
     guardar();
     pintarSolicitudes();
   }));
@@ -1672,10 +1808,20 @@ function pintarSugerencias() {
         // Y también donde ya esté puesto, por si cambió de categoría después.
         for (const t of Object.keys(turnos)) if (turnos[t].gente.includes(sig)) pedidos.add(t);
 
+        // Cuando pidió «uno u otro» ese día, en cuanto tiene uno los demás
+        // dejan de ofrecerse: no los quería los dos.
+        const unoUOtro = !!estado.alternativas[`${sig}|${d.f}`];
+        const yaTieneEseDia = turnosDe(sig, d.f);
+
         const chips = TRONCALES.filter(t => turnos[t] && pedidos.has(t)
             && (admitidosDe[t].includes(p.c) || turnos[t].gente.includes(sig))).map(t => {
           const mio = turnos[t].gente.includes(sig);
-          return { t, mio, lleno: !mio && !turnos[t].libres,
+          const descartado = unoUOtro && !mio && yaTieneEseDia.length > 0;
+          if (descartado) {
+            return { t, mio:false, lleno:true, descartado:true, alerta:null, grave:false,
+                     motivo: `Pidió uno u otro ese día y ya tiene ${yaTieneEseDia.join(' y ')}` };
+          }
+          return { t, mio, lleno: !mio && !turnos[t].libres, descartado:false,
                    ...(mio ? { alerta:null, grave:false } : revisar(sig, d.f, t)) };
         });
         if (!chips.length) continue;
@@ -1689,10 +1835,15 @@ function pintarSugerencias() {
           if (!porTexto.has(c.alerta)) porTexto.set(c.alerta, []);
           porTexto.get(c.alerta).push(c.t);
         }
+        // Siempre en condicional y con el turno por delante. Sin eso, ver
+        // «Juntaría C+K» en el renglón de alguien que ya trae la C puesta se
+        // lee como una acusación, no como el aviso de lo que pasaría al
+        // pulsar la K.
         const alertas = [...porTexto].map(([texto, turnos]) =>
-          turnos.length === pendientes.length ? texto : `${turnos.join(' y ')}: ${texto}`);
+          `Si le das ${turnos.join(' o ')}: ${texto.charAt(0).toLowerCase()}${texto.slice(1)}`);
 
         gente.push({ sig, nombre: p.n, categoria: p.c, deOtra: p.c !== g,
+                     unoUOtro: unoUOtro && chips.length > 1,
                      horas: estado.horas[sig] ?? null, chips, alertas,
                      grave: pendientes.some(c => c.grave),
                      seguidos: Math.max(0, ...chips.map(c => c.seguidos || 0)),
@@ -1758,6 +1909,7 @@ function pintarSugerencias() {
           <span class="puesto">${p.tiene ? '✓' : i+1}</span>
           <span class="quien">${esc(p.sig)}
             ${p.deOtra ? `<span class="otra-cat">${TITULO[p.categoria]}</span>` : ''}
+            ${p.unoUOtro ? '<span class="uno-u-otro">uno u otro</span>' : ''}
             ${p.seguidos > MAX_DIAS_SEGUIDOS_TX
               ? `<span class="seguidos">${p.seguidos} días seguidos</span>` : ''}
             <small>${esc(nombreCorto(p.nombre))}</small>
@@ -1767,13 +1919,14 @@ function pintarSugerencias() {
             ${p.horas === null ? '' : '<small>trabajadas</small>'}</span>
           <span class="chips">${p.chips.map(c => `
             <button class="chip-turno t-${c.t} ${c.mio ? 'dado' : c.lleno ? 'lleno' : 'libre'}
-                           ${c.grave ? 'riesgo' : ''}"
+                           ${c.grave ? 'riesgo' : ''} ${c.descartado ? 'descartado' : ''}"
                     data-sig="${esc(p.sig)}" data-f="${d.f}" data-g="${b.g}" data-t="${c.t}"
                     data-modo="${c.mio ? 'quitar' : 'dar'}"
                     data-grave="${c.grave ? '1' : ''}"
                     data-alerta="${esc(c.alerta || '')}"
                     ${c.lleno ? 'disabled' : ''}
                     title="${c.mio ? `Quitar a ${esc(p.sig)} de ${c.t}`
+                          : c.descartado ? esc(c.motivo)
                           : c.lleno ? `Ya no hay lugar en ${c.t}`
                           : c.alerta ? esc(c.alerta) : `Asignar ${c.t} a ${esc(p.sig)}`}">
               ${c.t}${c.mio ? '<i>×</i>' : ''}${c.grave && !c.mio ? '<em>!</em>' : ''}
@@ -2076,6 +2229,162 @@ function pintarCierre() {
   $('#c-cubiertos').innerHTML = cubiertos.length
     ? pintarDiasCierre(cubiertos, true)
     : '<p class="hueco">Todavía no se ha asignado ningún lugar.</p>';
+
+  pintarCierreDeRonda(libres);
+  pintarRepublicacion(libres);
+  pintarHistorial();
+}
+
+/**
+ * Los mensajes de la ronda que se acaba de abrir, aquí mismo.
+ *
+ * Sólo cuando ya se cerró alguna ronda: en la primera todavía están frescos en
+ * el paso 1, de donde se viene.
+ */
+function pintarRepublicacion(libres) {
+  const caja = $('#c-republicar');
+  if (!estado.historial.length || estado.cerrada || !libres) { caja.hidden = true; return; }
+
+  caja.hidden = false;
+  $('#c-republicar-titulo').textContent = `Ronda ${estado.ronda} · vuelve a publicar`;
+  $('#c-republicar-nota').textContent = EXPLICA_RONDA[estado.ronda];
+  pintarCajas('#c-republicar-cajas', armarPublicaciones($('#p-dow').checked),
+    'No quedó nada que ofrecer en esta ronda.');
+}
+
+/* --------------------------------------------------------------------------
+   Cierre de ronda: se avanza, no se vuelve al paso 1
+   -------------------------------------------------------------------------- */
+
+/**
+ * Cierra la ronda en curso y abre la siguiente.
+ *
+ * Lo asignado no se toca: sigue siendo válido. Lo que cambia es el alcance con
+ * que se republica lo que quedó libre, que es lo que hace la ronda siguiente.
+ * De la ronda que se cierra queda un renglón en el historial, para saber
+ * después en cuál se cubrió cada cosa.
+ */
+function cerrarRonda(siguiente) {
+  const lugares = estadoDeLugares();
+  const cupos = lugares.reduce((s,l) => s + l.cupos, 0);
+  const puestos = lugares.reduce((s,l) => s + l.gente.length, 0);
+  const yaHabia = estado.historial.reduce((s,h) => s + h.asignados, 0);
+
+  estado.historial.push({
+    ronda: estado.ronda,
+    cuando: new Date().toISOString(),
+    publicados: cupos,
+    // Sólo lo que se asignó en esta ronda, no el acumulado.
+    asignados: Math.max(0, puestos - yaHabia),
+    libres: cupos - puestos,
+    filas: filasAsignadas().map(r => `${r.sig} ${r.dia}${r.t}`),
+  });
+
+  if (siguiente) {
+    estado.ronda = siguiente;
+  } else {
+    estado.cerrada = true;
+  }
+  guardar();
+  pintarCierre();
+  pintarMensajesPublicacion();
+  avisar(siguiente
+    ? `Ronda ${siguiente}. Abajo están los mensajes para volver a publicar lo que faltó.`
+    : 'Asignación cerrada. Cuando toque la siguiente, usa «Nueva asignación».',
+    'ok', 7000);
+}
+
+/** Deshace el cierre, por si se pasó de ronda sin querer. */
+function reabrirRonda() {
+  const ultima = estado.historial.pop();
+  if (!ultima) return;
+  estado.ronda = ultima.ronda;
+  estado.cerrada = false;
+  guardar();
+  pintarCierre();
+  pintarMensajesPublicacion();
+  avisar(`De vuelta en la ronda ${ultima.ronda}`);
+}
+
+function pintarCierreDeRonda(libres) {
+  const caja = $('#c-cierre-ronda');
+  const ronda = estado.ronda;
+  const siguiente = ronda < 3 ? ronda + 1 : null;
+
+  if (estado.cerrada) {
+    caja.innerHTML = `
+      <h2>Asignación cerrada</h2>
+      <p class="nota">Se cerró en la ronda ${ronda}. Para la semana que viene,
+        el botón <b>⟳ Nueva asignación</b> de arriba deja todo en blanco.</p>
+      <div class="acciones" style="justify-content:flex-start">
+        <button class="btn" id="c-reabrir">Reabrir la ronda ${ronda}</button>
+      </div>`;
+    $('#c-reabrir').addEventListener('click', reabrirRonda);
+    return;
+  }
+
+  if (!libres) {
+    caja.innerHTML = `
+      <h2>✓ No falta nada por cubrir</h2>
+      <p class="nota">Todos los lugares de la ronda ${ronda} quedaron asignados.
+        Aquí se acaba: no hay nada que republicar.</p>
+      <div class="acciones" style="justify-content:flex-start">
+        <button class="btn fuerte grande" id="c-cerrar">Cerrar esta asignación</button>
+      </div>`;
+    $('#c-cerrar').addEventListener('click', () => cerrarRonda(null));
+    return;
+  }
+
+  if (!siguiente) {
+    caja.innerHTML = `
+      <h2>Quedaron ${libres} lugar(es) sin cubrir</h2>
+      <p class="nota">La ronda 3 es la última: ya se ofrecieron a las tres
+        categorías. Lo que no se cubrió, no se cubrió.</p>
+      <div class="acciones" style="justify-content:flex-start">
+        <button class="btn fuerte grande" id="c-cerrar">Cerrar esta asignación</button>
+      </div>`;
+    $('#c-cerrar').addEventListener('click', () => cerrarRonda(null));
+    return;
+  }
+
+  caja.innerHTML = `
+    <h2>Quedaron ${libres} lugar(es) sin cubrir</h2>
+    <p class="nota">${EXPLICA_RONDA[siguiente]}</p>
+    <p class="nota">Al pasar de ronda, lo ya asignado se queda como está y la
+      ronda ${ronda} se guarda en el historial. <b>Los mensajes para volver a
+      publicar salen aquí mismo</b>, no hay que regresar al paso 1.</p>
+    <div class="acciones" style="justify-content:flex-start">
+      <button class="btn fuerte grande" id="c-siguiente">
+        Pasar a la ronda ${siguiente} →</button>
+      <button class="btn" id="c-cerrar">Cerrar así, sin cubrirlos</button>
+    </div>`;
+  $('#c-siguiente').addEventListener('click', () => cerrarRonda(siguiente));
+  $('#c-cerrar').addEventListener('click', () => cerrarRonda(null));
+}
+
+function pintarHistorial() {
+  const caja = $('#c-historial');
+  if (!estado.historial.length) { caja.hidden = true; return; }
+  caja.hidden = false;
+
+  $('#c-historial-lista').innerHTML = estado.historial.map(h => {
+    const hora = new Date(h.cuando);
+    const cuando = `${hora.getDate()}/${hora.getMonth()+1} ${String(hora.getHours()).padStart(2,'0')}:${String(hora.getMinutes()).padStart(2,'0')}`;
+    return `<details class="ronda-vieja">
+      <summary>
+        <b>Ronda ${h.ronda}</b>
+        <span class="cifras">${h.asignados} asignado(s) · ${h.libres} quedaron libres</span>
+        <span class="cuando">${cuando}</span>
+      </summary>
+      <div class="detalle-ronda">
+        ${h.filas.length
+          ? `<p class="nota">Al cerrar la ronda ${h.ronda} iban:</p>
+             <div class="fichas">${h.filas.map(x =>
+               `<span class="ficha">${esc(x)}</span>`).join('')}</div>`
+          : '<p class="nota">No se asignó nada en esta ronda.</p>'}
+      </div>
+    </details>`;
+  }).join('');
 }
 
 function pintarDiasCierre(lugares, cubierto) {
@@ -2150,9 +2459,9 @@ function meterRespaldo(crudo) {
     return 'El archivo no trae datos de tiempo extra.';
 
   estado = { cupos:{}, peticiones:{}, horas:{}, asignados:{}, tambien:{},
-             notas:{}, bitacora:'',
+             notas:{}, bitacora:'', alternativas:{}, historial:[], cerrada:false,
              personal:null, clave:CLAVE_INICIAL, ronda:1, ...nuevo };
-  for (const k of ['cupos','peticiones','horas','asignados','tambien','notas'])
+  for (const k of ['cupos','peticiones','horas','asignados','tambien','notas','alternativas'])
     estado[k] = estado[k] || {};
   if (!Array.isArray(estado.personal)) estado.personal = PERSONAL_INICIAL.map(p => ({ ...p }));
   if (!ESCALONES[estado.ronda]) estado.ronda = 1;
@@ -2376,9 +2685,10 @@ function modalPersona(siglas) {
 const LIMPIABLE = [
   { clave:'cupos',      etiqueta:'Lugares publicados',    porDefecto:true,
     arrastra:['tambien'] },
-  { clave:'peticiones', etiqueta:'Solicitudes capturadas', porDefecto:true  },
+  { clave:'peticiones', etiqueta:'Solicitudes capturadas', porDefecto:true,
+    arrastra:['alternativas'] },
   { clave:'asignados',  etiqueta:'Asignaciones y sus notas', porDefecto:true,
-    arrastra:['notas'], bitacora:true },
+    arrastra:['notas'], bitacora:true, historial:true },
   { clave:'horas',      etiqueta:'Horas capturadas',       porDefecto:true  },
   { clave:'personal',   etiqueta:'Catálogo de personal',   porDefecto:false, cimiento:true },
 ];
@@ -2471,6 +2781,7 @@ function modalLimpiar() {
         const def = LIMPIABLE.find(x => x.clave === g);
         for (const otro of (def.arrastra || [])) estado[otro] = {};
         if (def.bitacora) estado.bitacora = '';
+        if (def.historial) { estado.historial = []; estado.cerrada = false; }
       }
     }
     if ($('#lim-ronda').checked) estado.ronda = 1;
