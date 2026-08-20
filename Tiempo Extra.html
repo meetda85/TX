@@ -340,6 +340,15 @@ table.tabla.asignados tr:first-child td { border-top:0; }
 .chip-turno.descartado { border-style:dotted; opacity:.45;
   text-decoration:line-through; }
 
+/* Lo que viene de una ronda anterior: ocupa el lugar, pero ya se anunció y no
+   sale en la tabla de esta ronda. Se apaga para que no compita con lo nuevo. */
+.chip-turno.dado.de-antes { background:var(--ink-soft); border-color:var(--ink-soft); }
+.chip-turno.dado.de-antes:hover { background:var(--crit); border-color:var(--crit); }
+.de-ronda { display:inline-block; margin-left:7px; padding:1px 7px;
+  border-radius:20px; font:700 10px var(--ui); vertical-align:1px;
+  letter-spacing:.02em; text-transform:uppercase;
+  background:var(--surface-2); color:var(--ink-soft); border:1px solid var(--line-firm); }
+
 /* Rondas cerradas, plegadas. */
 .ronda-vieja { border:1px solid var(--line); border-radius:10px;
   margin-bottom:8px; background:var(--surface-2); }
@@ -799,6 +808,7 @@ table.tabla.asignados tr:first-child td { border-top:0; }
       Renglón por renglón, ordenado por siglas, tal como lo vas a anotar en el
       rol. La <b>×</b> de la derecha lo deshace sin tener que buscarlo arriba.
     </p>
+    <p class="nota" id="a-solo-ronda"></p>
     <div class="linea">
       <button class="btn fuerte" id="a-copiar-excel">Copiar para Excel</button>
       <button class="btn" id="a-copiar-texto">Copiar como lista</button>
@@ -1013,6 +1023,7 @@ const CLAVE_INICIAL = '0348';
 //: cosa —unos cuantos kilobytes— así que no vale la pena guardar por partes.
 let estado = { cupos:{}, peticiones:{}, horas:{}, asignados:{}, tambien:{},
                notas:{}, bitacora:'', alternativas:{}, historial:[], cerrada:false,
+               rondaDe:{},
                personal:null, clave:CLAVE_INICIAL, ronda:1,
                desde:null, dias:7 };
 
@@ -1028,7 +1039,8 @@ function cargar() {
     const crudo = localStorage.getItem(CLAVE);
     if (crudo) estado = { ...estado, ...JSON.parse(crudo) };
   } catch { /* si el navegador lo bloquea, se trabaja en memoria */ }
-  for (const k of ['cupos','peticiones','horas','asignados','tambien','notas','alternativas'])
+  for (const k of ['cupos','peticiones','horas','asignados','tambien','notas',
+                   'alternativas','rondaDe'])
     estado[k] = estado[k] || {};
   if (!Array.isArray(estado.personal)) estado.personal = PERSONAL_INICIAL.map(p => ({ ...p }));
   if (!estado.clave) estado.clave = CLAVE_INICIAL;
@@ -1037,6 +1049,7 @@ function cargar() {
   PERSONAL = estado.personal;
   migrarAsignados();
   migrarAlternativas();
+  migrarRondas();
 }
 
 /**
@@ -1089,6 +1102,38 @@ function migrarAlternativas() {
       .map(x => x.split('|').slice(1).join('|'));
     if (claves.length > 1) (estado.alternativas[sig] ||= []).push(claves);
   }
+  guardar();
+}
+
+//: La clave con que se identifica una asignación concreta, la misma que usan
+//: las notas: día, grupo, turno y a quién.
+const kDado = (f,g,t,sig) => `${f}|${g}|${t}|${sig}`;
+
+/** En qué ronda se dio esa asignación. Lo de antes de llevar la cuenta, en la 1. */
+const rondaDe = (clave) => estado.rondaDe[clave] || 1;
+
+/**
+ * Le pone ronda a lo asignado antes de que se llevara la cuenta.
+ *
+ * El historial guarda, de cada ronda cerrada, las asignaciones que había en ese
+ * momento. Lo que aparece en la foto de la ronda 1 se hizo en la 1, y así. Lo
+ * que no aparece en ninguna se hizo en la ronda en curso.
+ */
+function migrarRondas() {
+  const claves = [];
+  for (const [k, lista] of Object.entries(estado.asignados)) {
+    const [f, g, t] = k.split('|');
+    for (const sig of lista) claves.push({ clave: kDado(f,g,t,sig), corto: `${sig} ${Number(f.slice(8))}${t}` });
+  }
+  const faltan = claves.filter(x => !estado.rondaDe[x.clave]);
+  if (!faltan.length) return;
+
+  for (const h of estado.historial) {
+    const foto = new Set(h.filas || []);
+    for (const x of faltan)
+      if (!estado.rondaDe[x.clave] && foto.has(x.corto)) estado.rondaDe[x.clave] = h.ronda;
+  }
+  for (const x of faltan) if (!estado.rondaDe[x.clave]) estado.rondaDe[x.clave] = estado.ronda;
   guardar();
 }
 
@@ -1959,7 +2004,9 @@ function pintarSugerencias() {
             return { t, mio:false, lleno:true, descartado:true, alerta:null, grave:false,
                      motivo: `Pidió uno u otro y ya tiene el ${enPalabras(otro)}` };
           }
+          const suRonda = mio ? rondaDe(kDado(d.f, g, t, sig)) : estado.ronda;
           return { t, mio, lleno: !mio && !turnos[t].libres, descartado:false,
+                   vieja: mio && suRonda !== estado.ronda, suRonda,
                    ...(mio ? { alerta:null, grave:false } : revisar(sig, d.f, t)) };
         });
         if (!chips.length) continue;
@@ -1982,6 +2029,11 @@ function pintarSugerencias() {
 
         gente.push({ sig, nombre: p.n, categoria: p.c, deOtra: p.c !== g,
                      unoUOtro: chips.some(c => enGrupo.has(`${d.f}|${c.t}`)),
+                     // Si todo lo que trae viene de antes, se marca: así se
+                     // entiende por qué el lugar está ocupado y no sale en la
+                     // tabla de esta ronda.
+                     deRonda: chips.every(c => c.vieja)
+                       ? Math.min(...chips.map(c => c.suRonda)) : null,
                      horas: estado.horas[sig] ?? null, chips, alertas,
                      grave: pendientes.some(c => c.grave),
                      seguidos: Math.max(0, ...chips.map(c => c.seguidos || 0)),
@@ -2048,6 +2100,7 @@ function pintarSugerencias() {
           <span class="quien">${esc(p.sig)}
             ${p.deOtra ? `<span class="otra-cat">${TITULO[p.categoria]}</span>` : ''}
             ${p.unoUOtro ? '<span class="uno-u-otro">uno u otro</span>' : ''}
+            ${p.deRonda ? `<span class="de-ronda">ronda ${p.deRonda}</span>` : ''}
             ${p.seguidos > MAX_DIAS_SEGUIDOS_TX
               ? `<span class="seguidos">${p.seguidos} días seguidos</span>` : ''}
             <small>${esc(nombreCorto(p.nombre))}</small>
@@ -2057,13 +2110,15 @@ function pintarSugerencias() {
             ${p.horas === null ? '' : '<small>trabajadas</small>'}</span>
           <span class="chips">${p.chips.map(c => `
             <button class="chip-turno t-${c.t} ${c.mio ? 'dado' : c.lleno ? 'lleno' : 'libre'}
-                           ${c.grave ? 'riesgo' : ''} ${c.descartado ? 'descartado' : ''}"
+                           ${c.grave ? 'riesgo' : ''} ${c.descartado ? 'descartado' : ''}
+                           ${c.vieja ? 'de-antes' : ''}"
                     data-sig="${esc(p.sig)}" data-f="${d.f}" data-g="${b.g}" data-t="${c.t}"
                     data-modo="${c.mio ? 'quitar' : 'dar'}"
                     data-grave="${c.grave ? '1' : ''}"
                     data-alerta="${esc(c.alerta || '')}"
                     ${c.lleno ? 'disabled' : ''}
                     title="${c.mio ? `Quitar a ${esc(p.sig)} de ${c.t}`
+                            + (c.vieja ? ` (se le dio en la ronda ${c.suRonda})` : '')
                           : c.descartado ? esc(c.motivo)
                           : c.lleno ? `Ya no hay lugar en ${c.t}`
                           : c.alerta ? esc(c.alerta) : `Asignar ${c.t} a ${esc(p.sig)}`}">
@@ -2103,11 +2158,14 @@ function pintarSugerencias() {
     if (modo === 'quitar') {
       estado.asignados[k] = dados(f,g,t).filter(x => x !== sig);
       if (!estado.asignados[k].length) delete estado.asignados[k];
+      delete estado.rondaDe[kDado(f,g,t,sig)];
+      delete estado.notas[kDado(f,g,t,sig)];
       guardar();
       avisar(`${sig} ya no tiene el ${dia} en ${t}. El lugar vuelve a estar libre.`);
     } else {
       if (b.dataset.grave && !confirm(`${alerta}.\n\n¿Asignarlo de todos modos?`)) return;
       (estado.asignados[k] ||= []).push(sig);
+      estado.rondaDe[kDado(f,g,t,sig)] = estado.ronda;
       guardar();
       avisar(alerta ? `${sig} asignado. ${alerta}.` : `${sig} asignado el ${dia} en ${t}`,
              b.dataset.grave ? 'mal' : alerta ? 'ojo' : 'ok', alerta ? 7000 : 3500);
@@ -2126,7 +2184,10 @@ function pintarSugerencias() {
 }
 
 /**
- * Lo asignado, en renglones, para pasarlo al rol de Excel.
+ * Lo asignado EN LA RONDA EN CURSO, en renglones, para pasarlo al rol de Excel.
+ *
+ * Lo de rondas anteriores ya se anunció y ya se anotó; volver a sacarlo aquí
+ * haría repetir el mensaje a quien ya le avisaron. Queda en el historial.
  *
  * Del mensaje de WhatsApp se puede copiar, pero está escrito para leerse en el
  * grupo («CT y ZL 17C»), no para transcribirse: hay que ir desarmando quién con
@@ -2141,8 +2202,9 @@ function filasAsignadas() {
     const d = fechas.get(f);
     if (!d) continue;
     for (const sig of lista) {
+      const clave = kDado(f,g,t,sig);
+      if (rondaDe(clave) !== estado.ronda) continue;
       const p = persona(sig);
-      const clave = `${f}|${g}|${t}|${sig}`;
       filas.push({ sig, nombre: p ? p.n : sig, categoria: p ? p.c : g,
                    f, g, t, dia: d.d, dow: d.largo,
                    clave, nota: estado.notas[clave] || '' });
@@ -2157,12 +2219,20 @@ function pintarTablaAsignados() {
   const filas = filasAsignadas();
   $('#a-cuantas').textContent = filas.length
     ? `${filas.length} asignación(es)` : '';
+
+  //: Con rondas cerradas atrás hay que decir por qué la tabla no las trae: si
+  //: no, parece que se perdieron.
+  const antes = estado.historial.reduce((s,h) => s + h.asignados, 0);
+  $('#a-solo-ronda').innerHTML = antes
+    ? `Sólo lo de la <b>ronda ${estado.ronda}</b>. Lo de rondas anteriores `
+      + `(${antes}) ya se anunció y está en el <b>Resumen</b>, bajo «Rondas anteriores».`
+    : '';
   $('#a-copiar-excel').disabled = !filas.length;
   $('#a-copiar-texto').disabled = !filas.length;
 
   if (!filas.length) {
-    $('#a-tabla').innerHTML =
-      '<p class="hueco">Todavía no has asignado nada. Sube y pulsa un turno.</p>';
+    $('#a-tabla').innerHTML = `<p class="hueco">Todavía no has asignado nada${
+      estado.historial.length ? ` en la ronda ${estado.ronda}` : ''}. Sube y pulsa un turno.</p>`;
     return;
   }
 
@@ -2197,7 +2267,8 @@ function pintarTablaAsignados() {
     const k = kAsig(f,g,t);
     estado.asignados[k] = dados(f,g,t).filter(x => x !== sig);
     if (!estado.asignados[k].length) delete estado.asignados[k];
-    delete estado.notas[`${f}|${g}|${t}|${sig}`];
+    delete estado.notas[kDado(f,g,t,sig)];
+    delete estado.rondaDe[kDado(f,g,t,sig)];
     guardar();
     avisar(`${sig} ya no tiene el ${Number(f.slice(8))} en ${t}. El lugar vuelve a estar libre.`);
     pintarSugerencias();
@@ -2263,9 +2334,11 @@ function pintarMensajesAsignacion() {
   const fechas = new Set(ventana().map(d => d.f));
   const porGrupo = {};
   for (const [k, lista] of Object.entries(estado.asignados)) {
-    const [f, , t] = k.split('|');
+    const [f, g, t] = k.split('|');
     if (!fechas.has(f)) continue;
     for (const sig of lista) {
+      // Sólo lo de esta ronda: el mensaje de la anterior ya se envió.
+      if (rondaDe(kDado(f,g,t,sig)) !== estado.ronda) continue;
       const p = persona(sig);
       if (!p) continue;
       ((porGrupo[p.c] = porGrupo[p.c] || {})[`${f}|${t}`] ||= []).push(sig);
@@ -2406,16 +2479,16 @@ function cerrarRonda(siguiente) {
   const lugares = estadoDeLugares();
   const cupos = lugares.reduce((s,l) => s + l.cupos, 0);
   const puestos = lugares.reduce((s,l) => s + l.gente.length, 0);
-  const yaHabia = estado.historial.reduce((s,h) => s + h.asignados, 0);
+  //: filasAsignadas() ya viene filtrada a la ronda en curso.
+  const mias = filasAsignadas();
 
   estado.historial.push({
     ronda: estado.ronda,
     cuando: new Date().toISOString(),
     publicados: cupos,
-    // Sólo lo que se asignó en esta ronda, no el acumulado.
-    asignados: Math.max(0, puestos - yaHabia),
+    asignados: mias.length,
     libres: cupos - puestos,
-    filas: filasAsignadas().map(r => `${r.sig} ${r.dia}${r.t}`),
+    filas: mias.map(r => `${r.sig} ${r.dia}${r.t}`),
   });
 
   if (siguiente) {
@@ -2605,8 +2678,10 @@ function meterRespaldo(crudo) {
 
   estado = { cupos:{}, peticiones:{}, horas:{}, asignados:{}, tambien:{},
              notas:{}, bitacora:'', alternativas:{}, historial:[], cerrada:false,
+               rondaDe:{},
              personal:null, clave:CLAVE_INICIAL, ronda:1, ...nuevo };
-  for (const k of ['cupos','peticiones','horas','asignados','tambien','notas','alternativas'])
+  for (const k of ['cupos','peticiones','horas','asignados','tambien','notas',
+                   'alternativas','rondaDe'])
     estado[k] = estado[k] || {};
   if (!Array.isArray(estado.personal)) estado.personal = PERSONAL_INICIAL.map(p => ({ ...p }));
   if (!ESCALONES[estado.ronda]) estado.ronda = 1;
@@ -2833,7 +2908,7 @@ const LIMPIABLE = [
   { clave:'peticiones', etiqueta:'Solicitudes capturadas', porDefecto:true,
     arrastra:['alternativas'] },
   { clave:'asignados',  etiqueta:'Asignaciones y sus notas', porDefecto:true,
-    arrastra:['notas'], bitacora:true, historial:true },
+    arrastra:['notas','rondaDe'], bitacora:true, historial:true },
   { clave:'horas',      etiqueta:'Horas capturadas',       porDefecto:true  },
   { clave:'personal',   etiqueta:'Catálogo de personal',   porDefecto:false, cimiento:true },
 ];

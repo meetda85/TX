@@ -189,8 +189,15 @@ un turno del rol, eso no aparece.
 
 Abajo, antes del mensaje, **«Lo que quedó asignado»**: un renglón por
 asignación —siglas, nombre, día, turno, categoría— ordenado por siglas, que es
-como está armado el rol. Sirve para dos cosas que el mensaje de WhatsApp no
-hace bien:
+como está armado el rol.
+
+**Sólo lo de la ronda en curso.** Lo asignado en rondas anteriores ya se anunció
+y ya se anotó; volver a sacarlo aquí haría repetirle el mensaje a quien ya le
+avisaron. En las tarjetas de arriba sí sigue a la vista —con su etiqueta
+`ronda 1` y el turno en gris— porque ocupa el lugar y hay que poder quitárselo;
+lo demás está en el Resumen, bajo «Rondas anteriores».
+
+La tabla sirve para dos cosas que el mensaje de WhatsApp no hace bien:
 
 - **Pasarlo al Excel.** El mensaje está escrito para leerse en el grupo
   (`CT y ZL 17C`) y hay que ir desarmándolo. El botón **Copiar para Excel**
