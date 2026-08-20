@@ -105,16 +105,23 @@ turno al final (`11, 12 y 15 en K`). Al agregar, el cursor vuelve a las siglas
 para seguir con el siguiente. Cada solicitud queda como una ficha que se puede
 quitar.
 
-**«Uno u otro».** Hay quien pide `25 en C o K` queriendo decir *uno de los dos*,
-no los dos. Escrito con **o** queda marcado como alternativa: en cuanto se le da
-uno, el otro deja de ofrecerse. Los dos turnos aparecen juntos en una ficha con
-un interruptor **y** / **o** en medio, que lo cambia de un clic por si se
-entendió al revés.
+**«Uno u otro».** Hay quien pide *uno de los dos*, no los dos. Se escribe con
+**diagonal** y funciona igual entre turnos del mismo día que **entre días
+distintos**:
 
-> La `o` choca con el turno `O`. Se resuelve por la forma: una `o` suelta entre
-> dos letras (`C o K`) es conjunción, mientras que el turno `O` va pegado
-> (`COK`) o en una lista (`C, O y K`). El interruptor está justamente para
-> cuando falle.
+```
+25 en C/K        →  el 25, o en C o en K
+28C / 30C        →  o el 28 en C, o el 30 en C
+```
+
+Quedan pintados juntos en una sola ficha con la diagonal en medio. En cuanto se
+le asigna uno, **los demás del grupo dejan de ofrecerse** y el botón dice cuál
+ya tiene. La **✂** los separa si se entendió mal.
+
+> La palabra `o` también funciona, pero la diagonal es más segura: `o` se
+> parece al turno `O`. El sistema los distingue por la forma —una `o` suelta
+> entre dos letras es conjunción, el turno `O` va pegado (`COK`) o en lista
+> (`C, O y K`)— pero con `/` no hay nada que adivinar.
 
 En la versión de Python se puede además pegar el mensaje del grupo completo,
 desde *Más…*. En la de un solo archivo no: la captura es a mano, a propósito,

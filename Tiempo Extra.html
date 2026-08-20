@@ -315,19 +315,18 @@ table.tabla.asignados td.cel-nota { max-width:300px; }
 table.tabla.asignados tr.abre td { border-top:1px solid var(--line-firm); }
 table.tabla.asignados tr:first-child td { border-top:0; }
 
-/* Un día con varios turnos pedidos: el interruptor de en medio dice si los
-   quiere todos («y») o sólo uno («o»). */
-.dia-sol { display:inline-flex; align-items:center; gap:3px; padding:2px;
-  border-radius:9px; border:1px dashed var(--line-firm); }
-.dia-sol.alterna { border-style:solid; border-color:var(--accent);
-  background:color-mix(in srgb, var(--accent) 7%, transparent); }
-.dia-sol .junta { min-width:20px; height:20px; padding:0 5px; border-radius:5px;
-  border:1px solid var(--line-firm); background:var(--surface); cursor:pointer;
-  font:800 11px var(--mono); color:var(--ink-soft); }
-.dia-sol.alterna .junta { border-color:var(--accent); background:var(--accent);
-  color:var(--accent-ink); }
-.dia-sol .junta:hover { border-color:var(--accent); color:var(--accent); }
-.dia-sol.alterna .junta:hover { background:var(--surface); }
+/* «Uno u otro»: los turnos van juntos, separados por diagonal, aunque caigan
+   en días distintos. La tijera los separa si se entendió mal. */
+.alterna-grupo { display:inline-flex; align-items:center; gap:3px; padding:2px 3px;
+  border-radius:9px; border:1.5px solid var(--accent);
+  background:color-mix(in srgb, var(--accent) 8%, transparent); }
+.alterna-grupo .barra { font:800 13px var(--mono); color:var(--accent);
+  padding:0 1px; }
+.alterna-grupo .soltar { min-width:20px; height:20px; margin-left:2px;
+  border-radius:5px; border:1px solid transparent; background:none;
+  cursor:pointer; font-size:11px; color:var(--accent); opacity:.6; }
+.alterna-grupo .soltar:hover { opacity:1; border-color:var(--accent);
+  background:var(--surface); }
 
 .uno-u-otro { display:inline-block; margin-left:7px; padding:1px 7px;
   border-radius:20px; font:700 10px var(--ui); vertical-align:1px;
@@ -715,13 +714,19 @@ table.tabla.asignados tr:first-child td { border-top:0; }
         Se entiende igual <code>12 en C, 14 en C, 15 C y K</code> que
         <code>12c 14c 15 c y k</code>.
       </p>
+      <p class="nota">
+        ¿Pidió <b>uno u otro</b>, no los dos? Sepáralos con <b>diagonal</b>:
+        <code>28C / 30C</code>, o <code>25 en C/K</code>. En cuanto le toque
+        uno, el otro deja de ofrecerse. La palabra <code>o</code> también
+        funciona, pero la diagonal no se puede confundir con el turno O.
+      </p>
       <label class="campo" style="margin-bottom:6px"><span class="rotulo">Siglas</span>
         <input type="text" id="s-siglas" maxlength="3" placeholder="CE" autocomplete="off"
                list="lista-siglas" class="siglas-grande"></label>
       <datalist id="lista-siglas"></datalist>
       <p class="nota" id="s-quien" style="min-height:19px"></p>
       <label class="campo"><span class="rotulo">Qué pidió</span>
-        <textarea id="s-texto" rows="3" placeholder="12 en C, 14 en C, 15 C y K"></textarea></label>
+        <textarea id="s-texto" rows="3" placeholder="12 en C, 14 en C, 28C / 30C"></textarea></label>
       <div class="linea"><button class="btn fuerte" id="s-agregar">Agregar</button></div>
       <p class="nota">Al agregar, el cursor vuelve a las siglas para seguir con el siguiente.</p>
     </div>
@@ -1022,6 +1027,7 @@ function cargar() {
   if (!Array.isArray(estado.historial)) estado.historial = [];
   PERSONAL = estado.personal;
   migrarAsignados();
+  migrarAlternativas();
 }
 
 /**
@@ -1053,6 +1059,58 @@ function migrarAsignados() {
   }
   guardar();
 }
+
+/**
+ * Pasa los «uno u otro» del formato viejo al nuevo.
+ *
+ * Antes se marcaba el día entero —«SIGLAS|fecha»— porque la alternativa sólo
+ * podía ser entre turnos del mismo día. Ahora es un conjunto de turnos, que
+ * puede cruzar días: «28C o 30C».
+ */
+function migrarAlternativas() {
+  const viejas = Object.keys(estado.alternativas)
+    .filter(k => estado.alternativas[k] === true);
+  if (!viejas.length) return;
+
+  for (const k of viejas) {
+    const [sig, f] = k.split('|');
+    delete estado.alternativas[k];
+    const claves = Object.keys(estado.peticiones)
+      .filter(x => x.startsWith(`${sig}|${f}|`))
+      .map(x => x.split('|').slice(1).join('|'));
+    if (claves.length > 1) (estado.alternativas[sig] ||= []).push(claves);
+  }
+  guardar();
+}
+
+/** Los turnos que ya tiene asignados esa persona, como claves «fecha|turno». */
+function asignadasDe(sig) {
+  const salida = new Set();
+  for (const [k, lista] of Object.entries(estado.asignados)) {
+    if (!lista.includes(sig)) continue;
+    const [f, , t] = k.split('|');
+    salida.add(`${f}|${t}`);
+  }
+  return salida;
+}
+
+/**
+ * Si ese turno queda descartado porque pidió «uno u otro» y ya le tocó el otro,
+ * devuelve cuál otro. Si no, null.
+ */
+function descartadoPor(sig, f, t) {
+  const clave = `${f}|${t}`;
+  const grupo = (estado.alternativas[sig] || []).find(g => g.includes(clave));
+  if (!grupo) return null;
+  const ya = asignadasDe(sig);
+  return grupo.find(k => k !== clave && ya.has(k)) || null;
+}
+
+/** «30 en C», para explicar un descarte. */
+const enPalabras = (clave) => {
+  const [f, t] = clave.split('|');
+  return `${Number(f.slice(8))} en ${t}`;
+};
 
 function guardar() {
   try {
@@ -1147,31 +1205,37 @@ function ventana() {
    ========================================================================== */
 
 const _DIAS_SEM = /\b(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\b/gi;
-//: Los separadores entre turnos. La «o» va aparte porque no sólo separa:
-//: «25 en C o K» quiere decir uno de los dos, no los dos.
+//: Separadores entre turnos, en tres sabores:
 //:
-//: Hay un choque con el turno O. Se resuelve por la forma: una «o» suelta
-//: entre dos letras («C o K») se lee como conjunción, mientras que el turno O
-//: aparece pegado («COK») o en una lista con coma o «y» («C, O y K»). Y por si
-//: se equivoca, la ficha de la solicitud trae el interruptor y/o para
-//: corregirlo con un clic.
-//: El orden importa: se prueba coma/«y» primero, luego la «o» suelta, y al
-//: final el pegado sin separador («15COK»). Así «C, O y K» son tres turnos y
-//: «C o K» son dos alternativas, aunque las dos traigan una o.
-const _SEPARA = String.raw`(?:\s*[,y+]\s*|\s+[oó]\s+|\s*)`;
+//:   normal      «C, K»  «C y K»  «C+K»      → los quiere todos
+//:   alternativa «C / K» «C o K»              → quiere uno de los dos
+//:   pegado      «CK»                         → los quiere todos
+//:
+//: El pegado no consume espacios a propósito. Con una «o» suelta detrás
+//: —«28C o 30C»— un separador que se tragara el espacio leería la o como el
+//: turno O del día 28, que es un turno que nadie pidió.
+const _SEP_NORMAL = String.raw`\s*[,y+]\s*`;
+const _SEP_ALTERNA = String.raw`(?:\s*/\s*|\s+[oó]\s+)`;
+const _SEPARA = `(?:${_SEP_NORMAL}|${_SEP_ALTERNA}|)`;
 const _CORRIDA = `[CKOcko](?:${_SEPARA}[CKOcko])*`;
+
 // Varios días y un turno al final: «11, 12 y 15 en K»
 const _VARIOS = new RegExp(String.raw`(\d{1,2}(?:\s*(?:,|y)\s*\d{1,2})+)\s*(?:en\s+)?(${_CORRIDA})`, 'g');
-// Un día con sus turnos: «12 en C y K», «15c», «4 c+k», «25 en C o K»
+// Un día con sus turnos: «12 en C y K», «15c», «4 c+k», «25 en C o K», «28C/K»
 const _UNO = new RegExp(String.raw`\b(\d{1,2})\s*(?:en\s+)?(${_CORRIDA})`, 'g');
+
+//: Lo que separa dos peticiones enteras: «28C o 30C», «28C / 30C». Es lo mismo
+//: que separa dos turnos, pero entre bloques de día completo.
+const _ENTRE_ALTERNA = new RegExp(`^${_SEP_ALTERNA}$`);
+
 //: La «o» es conjunción sólo cuando va suelta entre dos letras de turno. En
 //: «C, O y K» la O viene detrás de una coma, así que es el turno, no un «o».
-const _CONJUNCION = /([CKOcko])(\s+[oó]\s+)(?=[CKOcko])/g;
+const _CONJUNCION = /([CKOcko])(\s*\/\s*|\s+[oó]\s+)(?=[CKOcko])/g;
 const _ES_ALTERNATIVA = (corrida) => { _CONJUNCION.lastIndex = 0;
                                        return _CONJUNCION.test(corrida); };
 
 /**
- * Las letras de turno de una corrida, ya sin la «o» de conjunción.
+ * Las letras de turno de una corrida, ya sin las conjunciones.
  *
  * Se sacan una por una en vez de partir por separadores: así «15COK», sin nada
  * en medio, también se lee como los tres turnos.
@@ -1186,34 +1250,65 @@ function resolverDia(n, dias) {
   return hallado ? hallado.f : null;
 }
 
+/**
+ * Lee «12 en C, 14 en C, 28C / 30C» y devuelve los turnos pedidos, más los
+ * grupos de «uno u otro».
+ *
+ * Un grupo puede cruzar días: «28C o 30C» quiere decir uno de esos dos, no los
+ * dos. Por eso no basta con marcar el día — hay que guardar el conjunto.
+ */
 function leerPeticion(texto, dias) {
   const limpio = texto.replace(_DIAS_SEM, ' ');
   const salida = new Set();
-  const alternativas = new Set();
-  const tomados = [];
 
-  const guardar_ = (f, turnos, alterna) => {
-    for (const t of turnos) salida.add(`${f}|${t}`);
-    if (alterna && turnos.length > 1) alternativas.add(f);
-  };
+  // 1. Todos los bloques día-turnos, en orden y con dónde empieza cada uno.
+  const bloques = [];
+  const tomados = [];
 
   for (const m of limpio.matchAll(_VARIOS)) {
     const numeros = m[1].match(/\d{1,2}/g).map(Number);
     const turnos = _TURNOS_DE(m[2]);
+    const claves = [];
     for (const n of numeros) {
       const f = resolverDia(n, dias);
-      if (f) guardar_(f, turnos, _ES_ALTERNATIVA(m[2]));
+      if (f) for (const t of turnos) claves.push(`${f}|${t}`);
     }
+    if (claves.length) bloques.push({ ini: m.index, fin: m.index + m[0].length,
+                                      claves, alterna: _ES_ALTERNATIVA(m[2]) });
     tomados.push([m.index, m.index + m[0].length]);
   }
 
   for (const m of limpio.matchAll(_UNO)) {
     if (tomados.some(([a,b]) => m.index >= a && m.index < b)) continue;
-    const turnos = _TURNOS_DE(m[2]);
     const f = resolverDia(Number(m[1]), dias);
-    if (f) guardar_(f, turnos, _ES_ALTERNATIVA(m[2]));
+    if (!f) continue;
+    const claves = _TURNOS_DE(m[2]).map(t => `${f}|${t}`);
+    if (claves.length) bloques.push({ ini: m.index, fin: m.index + m[0].length,
+                                      claves, alterna: _ES_ALTERNATIVA(m[2]) });
   }
-  return { turnos: [...salida].sort(), alternativas: [...alternativas] };
+
+  bloques.sort((a,b) => a.ini - b.ini);
+  for (const b of bloques) for (const k of b.claves) salida.add(k);
+
+  // 2. Los grupos de alternativa. Dos bloques seguidos se unen si lo que hay
+  //    entre ellos es una «o» o una diagonal; dentro de un bloque, si sus
+  //    turnos venían unidos así.
+  const grupos = [];
+  for (let i = 0; i < bloques.length; i++) {
+    const b = bloques[i];
+    const puente = i > 0 ? limpio.slice(bloques[i-1].fin, b.ini) : null;
+
+    if (puente !== null && _ENTRE_ALTERNA.test(puente)) {
+      // Se pega al grupo anterior; si el anterior no tenía, se abre uno.
+      let grupo = grupos.find(g => bloques[i-1].claves.some(k => g.includes(k)));
+      if (!grupo) { grupo = [...bloques[i-1].claves]; grupos.push(grupo); }
+      for (const k of b.claves) if (!grupo.includes(k)) grupo.push(k);
+      continue;
+    }
+    if (b.alterna && b.claves.length > 1) grupos.push([...b.claves]);
+  }
+
+  return { turnos: [...salida].sort(), grupos };
 }
 
 /* ==========================================================================
@@ -1520,23 +1615,23 @@ function agregarSolicitud() {
   if (!texto) { avisar('Escribe qué días pidió', 'ojo'); $('#s-texto').focus(); return; }
 
   const dias = ventana();
-  const { turnos: halladas, alternativas } = leerPeticion(texto, dias);
+  const { turnos: halladas, grupos } = leerPeticion(texto, dias);
   if (!halladas.length) {
     avisar(`No entendí «${texto}». Escríbelo como «12 en C, 14 en C, 15 C y K».`, 'mal', 7000);
     return;
   }
 
   for (const clave of halladas) estado.peticiones[`${sig}|${clave}`] = true;
-  for (const f of alternativas) estado.alternativas[`${sig}|${f}`] = true;
+  if (grupos.length) (estado.alternativas[sig] ||= []).push(...grupos);
   guardar();
 
   const resumen = halladas.map(k => {
     const [f,t] = k.split('|');
     return `${Number(f.slice(8))}${t}`;
   }).join(', ');
-  avisar(alternativas.length
-    ? `${sig}: ${resumen}. Los días con «o» quedaron como uno u otro.`
-    : `${sig}: ${resumen}`, 'ok', alternativas.length ? 6000 : 3500);
+  avisar(grupos.length
+    ? `${sig}: ${resumen}. Lo que va con diagonal quedó como uno u otro.`
+    : `${sig}: ${resumen}`, 'ok', grupos.length ? 6000 : 3500);
 
   $('#s-siglas').value = '';
   $('#s-texto').value = '';
@@ -1577,50 +1672,56 @@ function pintarSolicitudes() {
     <div class="grupo-sol">
       <h3>${TITULO[g]} · ${porCat[g].length}</h3>
       ${porCat[g].sort().map(sig => {
-        // Las peticiones del mismo día van juntas, para poder decir de un clic
-        // si las quiere todas o sólo una.
-        const porDia = {};
-        for (const q of porPersona[sig]) (porDia[q.f] ||= []).push(q);
+        // Un grupo de «uno u otro» se pinta junto y con diagonales, aunque sus
+        // turnos caigan en días distintos. Lo demás va suelto.
+        const grupos = estado.alternativas[sig] || [];
+        const enGrupo = new Set(grupos.flat());
+        const ficha = (q) => `
+          <span class="ficha t-${q.t}">${Number(q.f.slice(8))} ${q.t}
+            <button data-quitar="${esc(q.clave)}" title="Quitar" aria-label="Quitar">×</button>
+          </span>`;
+
+        const sueltas = porPersona[sig].filter(q => !enGrupo.has(`${q.f}|${q.t}`));
+        const bloques = grupos.map((grupo, i) => {
+          const suyas = porPersona[sig].filter(q => grupo.includes(`${q.f}|${q.t}`));
+          if (suyas.length < 2) return '';
+          return `<span class="alterna-grupo" title="Pidió uno de estos, no todos">
+            ${suyas.map(ficha).join('<span class="barra">/</span>')}
+            <button class="soltar" data-soltar="${esc(sig)}|${i}"
+                    title="Separarlas: que pueda tener más de una">✂</button>
+          </span>`;
+        });
+
         return `
         <div class="reng-sol">
           <span class="sig">${esc(sig)}</span>
-          <div class="fichas">${Object.keys(porDia).sort().map(f => {
-            const grupo = porDia[f];
-            const alterna = !!estado.alternativas[`${sig}|${f}`];
-            const fichas = grupo.map(q => `
-              <span class="ficha t-${q.t}">${Number(q.f.slice(8))} ${q.t}
-                <button data-quitar="${esc(q.clave)}" title="Quitar" aria-label="Quitar">×</button>
-              </span>`);
-            if (grupo.length < 2) return fichas.join('');
-            // Con dos o más turnos el mismo día hay que saber si son
-            // acumulables o alternativas: el interruptor lo dice y lo cambia.
-            return `<span class="dia-sol ${alterna ? 'alterna' : ''}">
-              ${fichas.join(`<button class="junta" data-alterna="${esc(sig)}|${f}"
-                    title="${alterna ? 'Pidió uno u otro. Pulsa para que sean los dos.'
-                                     : 'Pidió los dos. Pulsa para que sea uno u otro.'}"
-                  >${alterna ? 'o' : 'y'}</button>`)}
-            </span>`;
-          }).join('')}</div>
+          <div class="fichas">${bloques.join('')}${sueltas.map(ficha).join('')}</div>
         </div>`;
       }).join('')}
     </div>`).join('');
 
   $$('[data-quitar]', cont).forEach(b => b.addEventListener('click', () => {
-    const [sig, f] = b.dataset.quitar.split('|');
+    const [sig, f, t] = b.dataset.quitar.split('|');
     delete estado.peticiones[b.dataset.quitar];
-    // Si ya sólo le queda un turno ese día, lo de «uno u otro» sobra.
-    const quedan = Object.keys(estado.peticiones).filter(k => k.startsWith(`${sig}|${f}|`));
-    if (quedan.length < 2) delete estado.alternativas[`${sig}|${f}`];
+    // El turno se va de su grupo, y el grupo se disuelve si queda con uno solo:
+    // un «uno u otro» de una sola opción no es una alternativa.
+    const grupos = (estado.alternativas[sig] || [])
+      .map(g => g.filter(k => k !== `${f}|${t}`))
+      .filter(g => g.length > 1);
+    if (grupos.length) estado.alternativas[sig] = grupos;
+    else delete estado.alternativas[sig];
     guardar();
     pintarSolicitudes();
   }));
 
-  $$('[data-alterna]', cont).forEach(b => b.addEventListener('click', () => {
-    const k = b.dataset.alterna;
-    if (estado.alternativas[k]) delete estado.alternativas[k];
-    else estado.alternativas[k] = true;
+  $$('[data-soltar]', cont).forEach(b => b.addEventListener('click', () => {
+    const [sig, i] = b.dataset.soltar.split('|');
+    const grupos = (estado.alternativas[sig] || []).filter((_, x) => x !== Number(i));
+    if (grupos.length) estado.alternativas[sig] = grupos;
+    else delete estado.alternativas[sig];
     guardar();
     pintarSolicitudes();
+    avisar(`Las de ${sig} ya no son uno u otro: puede tener más de una.`);
   }));
 }
 
@@ -1816,18 +1917,18 @@ function pintarSugerencias() {
         // Y también donde ya esté puesto, por si cambió de categoría después.
         for (const t of Object.keys(turnos)) if (turnos[t].gente.includes(sig)) pedidos.add(t);
 
-        // Cuando pidió «uno u otro» ese día, en cuanto tiene uno los demás
-        // dejan de ofrecerse: no los quería los dos.
-        const unoUOtro = !!estado.alternativas[`${sig}|${d.f}`];
-        const yaTieneEseDia = turnosDe(sig, d.f);
+        // Si pidió «uno u otro» y ya le tocó el otro, éste deja de ofrecerse.
+        // El grupo puede cruzar días: «28C o 30C».
+        const grupos = estado.alternativas[sig] || [];
+        const enGrupo = new Set(grupos.flat());
 
         const chips = TRONCALES.filter(t => turnos[t] && pedidos.has(t)
             && (admitidosDe[t].includes(p.c) || turnos[t].gente.includes(sig))).map(t => {
           const mio = turnos[t].gente.includes(sig);
-          const descartado = unoUOtro && !mio && yaTieneEseDia.length > 0;
-          if (descartado) {
+          const otro = mio ? null : descartadoPor(sig, d.f, t);
+          if (otro) {
             return { t, mio:false, lleno:true, descartado:true, alerta:null, grave:false,
-                     motivo: `Pidió uno u otro ese día y ya tiene ${yaTieneEseDia.join(' y ')}` };
+                     motivo: `Pidió uno u otro y ya tiene el ${enPalabras(otro)}` };
           }
           return { t, mio, lleno: !mio && !turnos[t].libres, descartado:false,
                    ...(mio ? { alerta:null, grave:false } : revisar(sig, d.f, t)) };
@@ -1851,7 +1952,7 @@ function pintarSugerencias() {
           `Si le das ${turnos.join(' o ')}: ${texto.charAt(0).toLowerCase()}${texto.slice(1)}`);
 
         gente.push({ sig, nombre: p.n, categoria: p.c, deOtra: p.c !== g,
-                     unoUOtro: unoUOtro && chips.length > 1,
+                     unoUOtro: chips.some(c => enGrupo.has(`${d.f}|${c.t}`)),
                      horas: estado.horas[sig] ?? null, chips, alertas,
                      grave: pendientes.some(c => c.grave),
                      seguidos: Math.max(0, ...chips.map(c => c.seguidos || 0)),
