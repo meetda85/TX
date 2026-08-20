@@ -203,6 +203,13 @@ en **Rondas anteriores**, y **los mensajes para volver a publicar salen en esa
 misma pantalla** — no hay que regresar al paso 1. De ahí se sigue al paso 2 a
 anotar quién contestó.
 
+Al pasar de ronda, **las solicitudes se vacían**: en la ronda nueva vuelven a
+pedir todos, y arrastrar las de la anterior sólo daría candidatos que ya no
+aplican. Lo asignado se queda —ya está dado— y las horas también, porque no
+cambian de una ronda a otra. Quien alcanzó lugar en la ronda anterior sigue
+apareciendo en su tarjeta con el turno marcado, para poder quitárselo si hace
+falta.
+
 Es un camino de ida: cada ronda deja su renglón en el historial —cuántos se
 asignaron, cuántos quedaron, con qué siglas— para saber después en cuál se
 cubrió cada cosa. Si se pasó de ronda sin querer, **Reabrir** lo deshace.

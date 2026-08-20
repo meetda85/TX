@@ -1799,12 +1799,20 @@ function pintarSugerencias() {
       for (const t of Object.keys(turnos)) admitidosDe[t] = alcanceDe(d.f, g, t, estado.ronda);
       const admitidos = ORDEN.filter(x => Object.values(admitidosDe).some(a => a.includes(x)));
 
-      const gente = [];
-      for (const sig of Object.keys(porPersona)) {
-        const p = persona(sig);
-        if (!p || !admitidos.includes(p.c)) continue;
+      // Los que pidieron, más los que ya traen algo asignado ese día. Sin lo
+      // segundo, al vaciar las solicitudes de la ronda anterior desaparecerían
+      // de la tarjeta los que ya tenían lugar, y no habría cómo quitárselos.
+      const asignadosAqui = new Set(Object.values(turnos).flatMap(x => x.gente));
+      const candidatos = [...new Set([...Object.keys(porPersona), ...asignadosAqui])];
 
-        const pedidos = new Set(porPersona[sig].filter(q => q.f === d.f).map(q => q.t));
+      const gente = [];
+      for (const sig of candidatos) {
+        const p = persona(sig);
+        if (!p) continue;
+        if (!admitidos.includes(p.c) && !asignadosAqui.has(sig)) continue;
+
+        const pedidos = new Set((porPersona[sig] || [])
+          .filter(q => q.f === d.f).map(q => q.t));
         // Y también donde ya esté puesto, por si cambió de categoría después.
         for (const t of Object.keys(turnos)) if (turnos[t].gente.includes(sig)) pedidos.add(t);
 
@@ -2282,16 +2290,23 @@ function cerrarRonda(siguiente) {
 
   if (siguiente) {
     estado.ronda = siguiente;
+    // En la ronda nueva vuelven a solicitar todos, así que la pizarra de
+    // solicitudes empieza en blanco. Lo asignado y las horas se quedan: lo
+    // primero ya está dado y lo segundo no cambia de una ronda a otra.
+    estado.peticiones = {};
+    estado.alternativas = {};
   } else {
     estado.cerrada = true;
   }
   guardar();
   pintarCierre();
   pintarMensajesPublicacion();
+  if (siguiente) pintarSolicitudes();
   avisar(siguiente
-    ? `Ronda ${siguiente}. Abajo están los mensajes para volver a publicar lo que faltó.`
+    ? `Ronda ${siguiente}. Las solicitudes quedaron en blanco para volver a capturarlas. `
+      + 'Abajo están los mensajes para republicar lo que faltó.'
     : 'Asignación cerrada. Cuando toque la siguiente, usa «Nueva asignación».',
-    'ok', 7000);
+    'ok', 8000);
 }
 
 /** Deshace el cierre, por si se pasó de ronda sin querer. */
