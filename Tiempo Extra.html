@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#1d4ed8">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%20%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%231d4ed8%22%2F%3E%20%3Cpath%20fill%3D%22%23fff%22%20d%3D%22M8%2017h22v8h-7v22h-8V25H8z%22%2F%3E%20%3Cpath%20fill%3D%22%23fff%22%20d%3D%22M35%2017h7l3.5%207%203.5-7h7l-7%2015%207%2015h-7l-3.5-7-3.5%207h-7l7-15z%22%2F%3E%20%3C%2Fsvg%3E">
 <title>Tiempo Extra · TWR MEX</title>
 
@@ -631,6 +633,8 @@ table.tabla.asignados tr:first-child td { border-top:0; }
       <button class="ronda-btn" data-ronda="2">2</button>
       <button class="ronda-btn" data-ronda="3">3</button>
     </div>
+    <button class="btn mini fuerte" id="instalar" hidden
+            title="Dejarla instalada en esta computadora">⤓ Instalar</button>
     <button class="btn mini" id="respaldo" title="Guardar o recuperar una copia de todo">⬇ Respaldo</button>
     <button class="btn mini" id="limpiar-todo" title="Vaciar y empezar una asignación nueva">⟳ Nueva asignación</button>
     <button class="icono" id="tema" title="Cambiar entre claro y oscuro" aria-label="Cambiar tema">◐</button>
@@ -3121,6 +3125,44 @@ function iniciar() {
 }
 
 iniciar();
+
+/* ==========================================================================
+   Instalable
+   ========================================================================== */
+
+//: Sólo prende cuando el programa se sirve desde la propia PC. Abierto con
+//: doble clic el navegador da origen «null» y no deja registrar nada; se
+//: ignora en silencio, porque así abierto funciona igual de bien.
+if (location.protocol === 'http:' || location.protocol === 'https:') {
+  addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* sin instalar */ });
+  });
+}
+
+//: Chrome y Edge avisan cuando la página se puede instalar. Se guarda el aviso
+//: y se ofrece el botón, en vez de dejarlo escondido en el menú del navegador.
+let ofertaInstalar = null;
+
+addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  ofertaInstalar = e;
+  const b = document.getElementById('instalar');
+  if (b) b.hidden = false;
+});
+
+addEventListener('appinstalled', () => {
+  ofertaInstalar = null;
+  const b = document.getElementById('instalar');
+  if (b) b.hidden = true;
+  avisar('Instalada. Ya la abres desde el menú de inicio, sin el lanzador.', 'ok', 8000);
+});
+
+document.getElementById('instalar').addEventListener('click', async () => {
+  if (!ofertaInstalar) return;
+  ofertaInstalar.prompt();
+  const { outcome } = await ofertaInstalar.userChoice;
+  if (outcome === 'accepted') ofertaInstalar = null;
+});
 </script>
 </body>
 </html>

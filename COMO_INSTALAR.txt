@@ -25,8 +25,49 @@ Funciona en cualquier computadora con Chrome o Edge (los dos ya vienen
 en Windows). Tambien en Mac.
 
 
-  PARA QUE SE VEA COMO UN PROGRAMA
-  --------------------------------
+  INSTALARLA DE VERDAD (opcional, recomendado)
+  --------------------------------------------
+  Queda en el menu de inicio, con su icono y su ventana propia, y
+  aparece en "Aplicaciones instaladas" de Windows. Abre sin internet.
+
+  Pon estos archivos en la misma carpeta:
+
+      Tiempo Extra.html
+      Abrir como app.bat
+      manifest.webmanifest
+      sw.js
+      icono-192.png   icono-512.png   icono-512-lleno.png
+
+  1. Doble clic en "Abrir como app.bat"
+     (se abre una ventana negra; dejala abierta por ahora)
+
+  2. Se abre el programa en el navegador. Arriba sale un boton
+     azul que dice "Instalar". Pulsalo y acepta.
+
+  3. Ya esta. Cierra la ventana negra: no la vas a volver a
+     necesitar. La app se abre desde el menu de inicio.
+
+  POR QUE HACE FALTA EL LANZADOR
+    El navegador no deja instalar un archivo abierto con doble clic;
+    tiene que venir servido. El lanzador lo sirve desde tu propia
+    computadora, en 127.0.0.1, que es ella misma. No sale nada a la
+    red y no instala ningun programa: usa el PowerShell que Windows
+    ya trae.
+
+  PARA ACTUALIZARLA
+    Reemplaza "Tiempo Extra.html" por el nuevo, corre otra vez
+    "Abrir como app.bat" y cierra la ventana negra. La app instalada
+    toma la version nueva sola.
+
+  SI EL LANZADOR NO ABRE
+    Puede que la politica del equipo bloquee PowerShell. No pasa
+    nada: el doble clic en "Tiempo Extra.html" sigue funcionando
+    igual de bien; lo unico que pierdes es el icono en el menu de
+    inicio, y para eso esta la opcion de abajo.
+
+
+  PARA QUE SE VEA COMO UN PROGRAMA (sin instalarla)
+  -------------------------------------------------
   Opcional. Deja un icono TX en el Escritorio que abre el sistema en su
   propia ventana, sin barra de direcciones ni pestañas.
 

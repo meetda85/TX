@@ -1,0 +1,18 @@
+{
+  "name": "Asignación de Tiempo Extra — TWR MEX",
+  "short_name": "Tiempo Extra",
+  "description": "Publicar tiempo extra, anotar quién lo pidió y decidir a quién asignárselo.",
+  "lang": "es-MX",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#eef1f6",
+  "theme_color": "#1d4ed8",
+  "icons": [
+    { "src": "icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icono-512-lleno.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

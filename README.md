@@ -18,10 +18,22 @@ Doble clic en **[`Tiempo Extra.html`](Tiempo%20Extra.html)** y listo. Se abre en
 Chrome o Edge y ya está funcionando: no hace falta Python, ni permisos de
 administrador, ni internet.
 
-Si quieres que se vea como un programa —icono TX en el Escritorio, ventana propia
-sin barra de direcciones— pon `TX.ico` y `Crear acceso directo.bat` junto al HTML
-y da doble clic en el `.bat` una sola vez. No instala nada; sólo crea el acceso
-directo. A mano funciona igual: clic derecho → *Enviar a* → *Escritorio*.
+**Para instalarla de verdad** —menú de inicio, ventana propia, «Aplicaciones
+instaladas» de Windows— doble clic en **`Abrir como app.bat`** y luego en el
+botón **Instalar** que sale arriba. Una sola vez; después la ventana negra ya no
+hace falta.
+
+> El navegador **no deja instalar un archivo abierto con doble clic**: el
+> registro falla con *«the URL protocol of the current origin ('null') is not
+> supported»*. Tiene que venir servido. El lanzador lo sirve desde la propia
+> computadora, en `127.0.0.1`, usando el PowerShell que Windows ya trae — no
+> instala nada y no sale nada a la red. Ya instalada abre sin el lanzador y sin
+> internet, porque el service worker guarda el programa entero.
+
+Si el equipo bloquea PowerShell, o no quieres instalarla, el doble clic en el
+HTML sigue funcionando igual. Para tener el ícono a la mano, pon `TX.ico` y
+`Crear acceso directo.bat` junto al HTML y corre el `.bat` una vez; a mano
+funciona igual con clic derecho → *Enviar a* → *Escritorio*.
 
 Lo capturado se guarda solo en la memoria del navegador de esa computadora, así
 que **saca una copia con el botón «Respaldo»** al terminar cada asignación: baja
