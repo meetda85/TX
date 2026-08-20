@@ -100,10 +100,15 @@ Siglas:  CE
 Pidió:   12 en C, 14 en C, 15 C y K
 ```
 
-Se entiende igual `12c 14c 15 c y k`, `15COK` pegado, y una lista de días con un
-turno al final (`11, 12 y 15 en K`). Al agregar, el cursor vuelve a las siglas
-para seguir con el siguiente. Cada solicitud queda como una ficha que se puede
-quitar.
+Se entiende igual `12c 14c 15 c y k` o `15COK` pegado. Al agregar, el cursor
+vuelve a las siglas para seguir con el siguiente, y cada solicitud queda como
+una ficha que se puede quitar.
+
+**Varios días en el mismo turno**, con o sin separadores:
+
+```
+11, 12 y 15 en K     23 24 25 26 en C     23 al 26 en C     23-26 en C
+```
 
 **«Uno u otro».** Hay quien pide *uno de los dos*, no los dos. Se escribe con
 **diagonal** y funciona igual entre turnos del mismo día que **entre días

@@ -715,6 +715,11 @@ table.tabla.asignados tr:first-child td { border-top:0; }
         <code>12c 14c 15 c y k</code>.
       </p>
       <p class="nota">
+        ¿<b>Varios días en el mismo turno?</b> Van seguidos, con o sin comas:
+        <code>23 24 25 26 en C</code>. Un tramo corrido también:
+        <code>23 al 26 en C</code> o <code>23-26 en C</code>.
+      </p>
+      <p class="nota">
         ¿Pidió <b>uno u otro</b>, no los dos? Sepáralos con <b>diagonal</b>:
         <code>28C / 30C</code>, o <code>25 en C/K</code>. En cuanto le toque
         uno, el otro deja de ofrecerse. La palabra <code>o</code> también
@@ -1219,8 +1224,28 @@ const _SEP_ALTERNA = String.raw`(?:\s*/\s*|\s+[oó]\s+)`;
 const _SEPARA = `(?:${_SEP_NORMAL}|${_SEP_ALTERNA}|)`;
 const _CORRIDA = `[CKOcko](?:${_SEPARA}[CKOcko])*`;
 
-// Varios días y un turno al final: «11, 12 y 15 en K»
-const _VARIOS = new RegExp(String.raw`(\d{1,2}(?:\s*(?:,|y)\s*\d{1,2})+)\s*(?:en\s+)?(${_CORRIDA})`, 'g');
+//: Lo que separa dos días de una lista. El espacio a secas cuenta: hay quien
+//: escribe «23 24 25 26 en C» sin comas ni «y», y sin esto sólo se guardaba el
+//: último día.
+const _SEP_DIA = String.raw`(?:\s*[,y]\s*|\s+)`;
+// Varios días y un turno al final: «11, 12 y 15 en K», «23 24 25 26 en C»
+const _VARIOS = new RegExp(String.raw`(\d{1,2}(?:${_SEP_DIA}\d{1,2})+)\s*(?:en\s+)?(${_CORRIDA})`, 'g');
+
+//: Un rango de días: «23 al 26 en C». Se estira antes de leer nada, porque es
+//: más seguro que meter otra rama a las expresiones de arriba.
+const _RANGO = /\b(\d{1,2})\s*(?:al?|-|–|—)\s*(\d{1,2})\b/g;
+
+function estirarRangos(texto) {
+  return texto.replace(_RANGO, (todo, a, b) => {
+    const desde = Number(a), hasta = Number(b);
+    // Si el rango no tiene sentido —al revés, o demasiado largo— se dejan los
+    // dos días como lista. Callarse uno es peor: no se nota que se perdió.
+    if (hasta <= desde || hasta > 31 || hasta - desde > 30) return `${a}, ${b}`;
+    const dias = [];
+    for (let n = desde; n <= hasta; n++) dias.push(n);
+    return dias.join(', ');
+  });
+}
 // Un día con sus turnos: «12 en C y K», «15c», «4 c+k», «25 en C o K», «28C/K»
 const _UNO = new RegExp(String.raw`\b(\d{1,2})\s*(?:en\s+)?(${_CORRIDA})`, 'g');
 
@@ -1258,7 +1283,7 @@ function resolverDia(n, dias) {
  * dos. Por eso no basta con marcar el día — hay que guardar el conjunto.
  */
 function leerPeticion(texto, dias) {
-  const limpio = texto.replace(_DIAS_SEM, ' ');
+  const limpio = estirarRangos(texto.replace(_DIAS_SEM, ' '));
   const salida = new Set();
 
   // 1. Todos los bloques día-turnos, en orden y con dónde empieza cada uno.
