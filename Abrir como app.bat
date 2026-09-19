@@ -16,6 +16,19 @@ cd /d "%~dp0"
 
 if not exist "Tiempo Extra.html" goto sin_archivo
 
+REM -- Solo Chrome y Edge instalan aplicaciones. Firefox quito esa funcion,
+REM -- asi que abrir el navegador por omision puede dejar sin el boton de
+REM -- instalar aunque todo lo demas funcione.
+set "PF86=%ProgramFiles(x86)%"
+set "NAV="
+for %%R in (
+  "%PF86%\Microsoft\Edge\Application\msedge.exe"
+  "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
+  "%ProgramFiles%\Google\Chrome\Application\chrome.exe"
+  "%PF86%\Google\Chrome\Application\chrome.exe"
+  "%LocalAppData%\Google\Chrome\Application\chrome.exe"
+) do if not defined NAV if exist %%R set "NAV=%%~R"
+
 echo.
 echo  ================================================================
 echo   Tiempo Extra - TWR MEX
@@ -28,6 +41,19 @@ echo   2. Pulsa el boton  "Instalar"  de la barra de arriba.
 echo   3. Ya instalada, se abre desde el menu de inicio y ya no
 echo      hace falta este lanzador.
 echo.
+if defined NAV (
+  echo   Abriendo con:
+  echo     %NAV%
+) else (
+  echo   OJO: no encontre Chrome ni Edge en las rutas de siempre.
+  echo   Voy a abrir tu navegador por omision, pero si es Firefox
+  echo   NO va a salir el boton de instalar: Firefox no instala
+  echo   aplicaciones. Copia entonces esta direccion y pegala en
+  echo   Chrome o en Edge:
+  echo.
+  echo       http://127.0.0.1:8788
+)
+echo.
 echo   NO CIERRES esta ventana mientras lo usas desde aqui.
 echo   Para detenerlo: cierra esta ventana.
 echo.
@@ -38,7 +64,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$tipos=@{'.html'='text/html; charset=utf-8';'.js'='text/javascript; charset=utf-8';'.css'='text/css; charset=utf-8';'.webmanifest'='application/manifest+json; charset=utf-8';'.json'='application/json; charset=utf-8';'.png'='image/png';'.ico'='image/x-icon';'.txt'='text/plain; charset=utf-8'};" ^
   "$oyente=New-Object Net.Sockets.TcpListener([Net.IPAddress]::Loopback,8788);" ^
   "try { $oyente.Start() } catch { Write-Host '  No se pudo abrir el puerto 8788. Cierra el otro lanzador y reintenta.'; Read-Host '  Enter para salir'; exit 1 };" ^
-  "Start-Process 'http://127.0.0.1:8788/';" ^
+  "$nav=$env:NAV;" ^
+  "if ($nav) { Start-Process $nav 'http://127.0.0.1:8788/' } else { Start-Process 'http://127.0.0.1:8788/' };" ^
   "while ($true) {" ^
   "  $c=$oyente.AcceptTcpClient(); $f=$c.GetStream();" ^
   "  try {" ^

@@ -23,6 +23,11 @@ instaladas» de Windows— doble clic en **`Abrir como app.bat`** y luego en el
 botón **Instalar** que sale arriba. Una sola vez; después la ventana negra ya no
 hace falta.
 
+> **Tiene que ser Chrome o Edge.** Firefox quitó la instalación de
+> aplicaciones en el escritorio, así que ahí el botón explica el porqué y deja
+> la dirección lista para copiar. El lanzador busca Chrome o Edge por su cuenta
+> y avisa en la ventana negra si no los encuentra.
+
 > El navegador **no deja instalar un archivo abierto con doble clic**: el
 > registro falla con *«the URL protocol of the current origin ('null') is not
 > supported»*. Tiene que venir servido. El lanzador lo sirve desde la propia
@@ -512,6 +517,14 @@ pruebas/        231 pruebas automatizadas
 
 ```
 python3 -m unittest discover -s pruebas
+```
+
+Y las de la versión de un solo archivo, que corren contra el navegador de
+verdad (necesitan Playwright, que **no** es dependencia del programa):
+
+```
+python3 pruebas/navegador/lector.py      # 19 formas de escribir una solicitud
+python3 pruebas/navegador/instalar.py    # el botón Instalar y sus casos
 ```
 
 Cubren el motor de reglas (incluido el caso textual de la jefatura), el parser

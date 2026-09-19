@@ -44,6 +44,13 @@ en Windows). Tambien en Mac.
   2. Se abre el programa en el navegador. Arriba sale un boton
      azul que dice "Instalar". Pulsalo y acepta.
 
+     TIENE QUE SER CHROME O EDGE. Firefox no instala aplicaciones
+     en la computadora: quito esa funcion. El lanzador ya busca
+     Chrome o Edge solo, pero si no los encuentra te lo avisa en
+     la ventana negra y te deja la direccion para pegarla ahi:
+
+         http://127.0.0.1:8788
+
   3. Ya esta. Cierra la ventana negra: no la vas a volver a
      necesitar. La app se abre desde el menu de inicio.
 

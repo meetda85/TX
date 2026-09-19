@@ -313,6 +313,12 @@ table.tabla.asignados td.cel-nota { max-width:300px; }
   background:var(--surface-2); color:var(--ink); }
 
 #a-bitacora { width:100%; resize:vertical; }
+
+.caja-url { margin:0 0 12px; padding:10px 12px; border-radius:9px;
+  background:var(--surface-2); border:1px solid var(--line); }
+.caja-url code { font:650 13px var(--mono); word-break:break-all; }
+.lista-nota { margin:0 0 12px; padding-left:20px; font-size:12.5px;
+  color:var(--ink-soft); line-height:1.6; }
 /* Una línea marca dónde empieza cada persona, sin repetir su nombre. */
 table.tabla.asignados tr.abre td { border-top:1px solid var(--line-firm); }
 table.tabla.asignados tr:first-child td { border-top:0; }
@@ -3215,29 +3221,82 @@ if (location.protocol === 'http:' || location.protocol === 'https:') {
 }
 
 //: Chrome y Edge avisan cuando la página se puede instalar. Se guarda el aviso
-//: y se ofrece el botón, en vez de dejarlo escondido en el menú del navegador.
+//: para ofrecer el botón, en vez de dejarlo escondido en el menú del navegador.
 let ofertaInstalar = null;
+
+//: Firefox no instala aplicaciones en el escritorio: quitó esa función y no
+//: dispara el aviso. Antes el botón simplemente no salía y no había forma de
+//: saber por qué, así que ahora sale igual y lo explica.
+const esFirefox = /firefox/i.test(navigator.userAgent);
+const yaInstalada = () =>
+  matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+function pintarBotonInstalar() {
+  const b = document.getElementById('instalar');
+  if (!b) return;
+  const servida = location.protocol === 'http:' || location.protocol === 'https:';
+  b.hidden = !servida || yaInstalada();
+}
 
 addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   ofertaInstalar = e;
-  const b = document.getElementById('instalar');
-  if (b) b.hidden = false;
+  pintarBotonInstalar();
 });
 
 addEventListener('appinstalled', () => {
   ofertaInstalar = null;
-  const b = document.getElementById('instalar');
-  if (b) b.hidden = true;
+  pintarBotonInstalar();
   avisar('Instalada. Ya la abres desde el menú de inicio, sin el lanzador.', 'ok', 8000);
 });
 
+/** Cuando el navegador no ofrece instalar, explica por qué y qué hacer. */
+function modalComoInstalar() {
+  const pasos = esFirefox
+    ? `<p class="nota"><b>Firefox no puede instalar aplicaciones</b> en la
+         computadora: quitó esa función hace tiempo. No es cosa del programa.</p>
+       <p class="nota">Para instalarla, abre esta misma dirección en
+         <b>Chrome</b> o en <b>Edge</b> —los dos ya vienen en Windows— y ahí
+         vuelve a pulsar «Instalar».</p>
+       <div class="caja-url"><code>${esc(location.href)}</code></div>
+       <p class="nota">Y si prefieres seguir en Firefox, no pasa nada: el
+         programa funciona igual. Lo único que te pierdes es el icono en el
+         menú de inicio.</p>`
+    : `<p class="nota">Este navegador todavía no ofrece instalarla. Suele pasar
+         por dos razones, las dos con arreglo:</p>
+       <ul class="lista-nota">
+         <li>Recién abrió: espera unos segundos y vuelve a pulsar.</li>
+         <li>Ya está instalada: búscala en el menú de inicio.</li>
+       </ul>
+       <p class="nota">También se puede desde el menú del navegador:
+         <b>⋮ → Guardar y compartir → Instalar esta página como aplicación</b>
+         (en Edge, <b>Aplicaciones → Instalar este sitio como una aplicación</b>).</p>`;
+
+  abrirPanel(`
+    <button class="cerrar" id="ci-cerrar" aria-label="Cerrar">×</button>
+    <h3>Instalar en esta computadora</h3>
+    <p class="sub">Para que quede en el menú de inicio, con su ventana propia.</p>
+    ${pasos}
+    <div class="acciones">
+      ${esFirefox ? '<button class="btn" id="ci-copiar">Copiar la dirección</button>' : ''}
+      <button class="btn fuerte" id="ci-ok">Entendido</button>
+    </div>`);
+
+  $('#ci-cerrar').addEventListener('click', cerrarPanel);
+  $('#ci-ok').addEventListener('click', cerrarPanel);
+  const cop = $('#ci-copiar');
+  if (cop) cop.addEventListener('click', () =>
+    copiar(location.href, 'Dirección copiada. Pégala en Chrome o Edge.'));
+}
+
 document.getElementById('instalar').addEventListener('click', async () => {
-  if (!ofertaInstalar) return;
+  if (!ofertaInstalar) { modalComoInstalar(); return; }
   ofertaInstalar.prompt();
   const { outcome } = await ofertaInstalar.userChoice;
   if (outcome === 'accepted') ofertaInstalar = null;
 });
+
+pintarBotonInstalar();
 </script>
 </body>
 </html>
